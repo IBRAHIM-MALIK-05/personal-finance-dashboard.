@@ -1,0 +1,13 @@
+# Python / tools
+__pycache__/
+*.pyc
+.pytest_cache/
+source/.venv/
+.codex/
+
+# Local runtime data and secrets
+source/instance/
+source/.env
+
+# Course handbook (not our work)
+HCI_Advanced_Project_Handbook_5th_Semester_CCP.docx
