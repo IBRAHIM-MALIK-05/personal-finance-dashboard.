@@ -108,7 +108,7 @@ Regenerate data with `python scripts/generate_data.py`, and the Workbench schema
 
 ## 7. Evaluation materials
 
-[`docs/EVALUATION.md`](docs/EVALUATION.md) holds the workbook for personas, scenarios, the 8 usability tasks, consent,
+[`report/REPORT.md`](report/REPORT.md) is a draft of the written report (no results yet). [`docs/EVALUATION.md`](docs/EVALUATION.md) holds the workbook for personas, scenarios, the 8 usability tasks, consent,
 SUS, heuristic review, accessibility audit, findings/retest, Hurdle Log and Break-it responses. **All result fields are
 intentionally blank**: they must be filled from real sessions with real participants.
 
