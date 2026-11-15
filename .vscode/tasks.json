@@ -1,0 +1,22 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Run the app",
+      "type": "shell",
+      "command": "${workspaceFolder}\\source\\.venv\\Scripts\\python.exe app.py",
+      "options": { "cwd": "${workspaceFolder}\\source" },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated" }
+    },
+    {
+      "label": "Run the tests",
+      "type": "shell",
+      "command": "${workspaceFolder}\\source\\.venv\\Scripts\\python.exe -m pytest",
+      "options": { "cwd": "${workspaceFolder}\\source" },
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": []
+    }
+  ]
+}
