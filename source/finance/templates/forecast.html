@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% set section = 'nav.forecast' %}
+{% block title %}Forecast{% endblock %}
+{% block content %}
+{% set fc = v.fc %}
+<div class="page-head">
+  <div><h1>Cash-flow forecast</h1>
+    <p>From {{ fc.as_of|human }} to {{ fc.end|human }}. Everything after the “as of” line is an estimate, not a promise.</p></div>
+  <form method="get" class="row-fields" aria-label="Forecast settings">
+    <div class="field"><label for="hz">Look ahead</label>
+      <select id="hz" name="horizon">{% for h in [30, 60, 90] %}<option value="{{ h }}" {% if h == horizon %}selected{% endif %}>{{ h }} days</option>{% endfor %}</select></div>
+    <div class="field"><label for="asof">As of</label><input id="asof" type="date" name="as_of" value="{{ as_of.isoformat() }}" max="{{ today.isoformat() }}"></div>
+    <div class="actions"><button class="primary" type="submit">Update</button></div>
+  </form>
+</div>
+
+{% if not v.snap.txns %}
+  {{ m.empty('Nothing to forecast yet', 'Add or import transactions first. A forecast needs at least a few weeks of history.',
+     url_for('imports.start') if actor.can('import') else None, 'Import a CSV file') }}
+{% else %}
+
+{% if fc.limited %}
+<section class="card banner-warn" aria-labelledby="lim-h">
+  <h2 id="lim-h">Limited estimate</h2>
+  <p>There is less than two full months of history, so typical spending is uncertain.
+     The forecast currently assumes <strong>{{ fc.variable.display }}</strong> a month of everyday spending (based on the history that is available).
+     If you know your usual figure, enter it:</p>
+  <form method="get" class="row-fields">
+    <input type="hidden" name="horizon" value="{{ horizon }}">
+    <div class="field"><label for="ms">My usual monthly spending, excluding bills (Rs)</label>
+      <input id="ms" name="monthly_spending" inputmode="decimal" value="{{ request.args.get('monthly_spending', '') }}"></div>
+    <div class="actions"><button class="secondary" type="submit">Use this figure</button></div>
+  </form>
+</section>
+{% endif %}
+{% if overrides %}<p class="flash flash-info"><span class="flash-icon" aria-hidden="true">i</span><span>Using your monthly spending figure ({{ fc.variable.display }}). This is a plan, not history. <a href="{{ url_for('views.forecast', horizon=horizon) }}">Go back to history-based figures</a></span></p>{% endif %}
+
+<section class="grid grid-3" aria-label="Forecast figures">
+  {{ m.figure(fc.closing, 'lg', note='Likely range ' ~ fc.closing_range.display) }}
+  {{ m.figure(fc.lowest, 'lg', note='on ' ~ (fc.lowest_point.day|human)) }}
+  {{ m.figure(fc.balance_now, 'lg') }}
+</section>
+
+<section class="card" aria-labelledby="ch-h">
+  <h2 id="ch-h">Balance over time</h2>
+  {{ m.chart_block(chart, chart_data, 'fc', 'Account balance: actual for the last 60 days, then the forecast') }}
+  <details class="card" {% if prefs.lens == 'detailed' %}open{% endif %}>
+    <summary>Show the chart as a table</summary>
+    <div class="table-wrap">
+    <table class="data">
+      <caption>Forecast balance by day (weekly rows plus every day with a scheduled item)</caption>
+      <thead><tr><th scope="col">Date</th><th class="num" scope="col">Forecast (typical)</th><th class="num" scope="col">Worst month</th><th class="num" scope="col">Best month</th><th scope="col">Scheduled</th></tr></thead>
+      <tbody>
+      <tr><th scope="row">{{ fc.as_of|human }} (as of)</th><td class="num">{{ fc.balance_now.display }} {{ m.kind_badge('actual') }}</td><td class="num">—</td><td class="num">—</td><td></td></tr>
+      {% for p in fc.points %}{% if loop.index % 7 == 0 or p.events or loop.last %}
+      <tr><th scope="row">{{ p.day|human }}</th><td class="num">{{ p.base|pkr }}</td><td class="num">{{ p.worst|pkr }}</td><td class="num">{{ p.best|pkr }}</td>
+        <td>{% for e in p.events %}{{ e.label }} {{ e.amount|pkr(signed=True) }}{% if not loop.last %}; {% endif %}{% endfor %}</td></tr>
+      {% endif %}{% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </details>
+</section>
+
+<div class="grid grid-2">
+  <section class="card" aria-labelledby="as-h">
+    <h2 id="as-h">Assumptions behind this forecast</h2>
+    <ul class="assumptions">{% for a in fc.assumptions %}<li>{{ a }}</li>{% endfor %}</ul>
+    {{ m.figure(fc.variable, 'md') }}
+  </section>
+  <section class="card" aria-labelledby="ev-h">
+    <h2 id="ev-h">Scheduled items in this period</h2>
+    {{ m.figure(fc.scheduled_in, 'md') }}
+    {{ m.figure(fc.scheduled_out, 'md') }}
+    {% if not fc.events %}<p>No recurring items fall in this period. <a href="{{ url_for('views.bills') }}">Set some up</a>.</p>{% endif %}
+  </section>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,111 @@
+{% macro kind_badge(kind) -%}
+<span class="badge kind-{{ kind }}"><span class="badge-shape" aria-hidden="true"></span>{{ KIND_LABELS[kind] }}</span>
+{%- endmacro %}
+
+{% macro explain(e, force_open=False, title=None) -%}
+<details class="explain" {% if force_open or prefs.lens == 'detailed' %}open{% endif %}>
+  <summary>{% if title %}{{ title }}{% else %}{{ t('explain') }}<span class="sr-only"> ({{ e.label }})</span>{% endif %}</summary>
+  <div class="explain-body">
+    <p class="formula"><span class="muted">Formula:</span> {{ e.formula }}</p>
+    {% if e.inputs %}
+    <table class="inputs">
+      <caption class="sr-only">What goes into {{ e.label }}</caption>
+      <thead class="sr-only"><tr><th scope="col">Input</th><th scope="col">Value</th><th scope="col">Type</th></tr></thead>
+      <tbody>
+      {% for i in e.inputs %}
+        <tr><th scope="row">{{ i.label }}</th><td class="num">{{ i.value }}</td><td>{{ kind_badge(i.kind) }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+    <p class="result">Result: <strong>{{ e.display }}</strong></p>
+    {% if e.assumptions %}
+    <p class="muted assumptions-title">Assumptions</p>
+    <ul class="assumptions">{% for a in e.assumptions %}<li>{{ a }}</li>{% endfor %}</ul>
+    {% endif %}
+  </div>
+</details>
+{%- endmacro %}
+
+{% macro figure(e, size='md', label=None, note=None) -%}
+<div class="figure figure-{{ size }}">
+  <p class="figure-label">{{ label or e.label }}</p>
+  <p class="figure-value"><span class="num">{{ e.display }}</span> {{ kind_badge(e.kind) }}</p>
+  {% if note %}<p class="figure-note">{{ note }}</p>{% endif %}
+  {{ explain(e) }}
+</div>
+{%- endmacro %}
+
+{% macro field(name, label, values, errors, type='text', hint='', required=False, attrs='', id=None) -%}
+{% set fid = id or ('f-' ~ name) %}
+<div class="field {% if errors.get(name) %}has-error{% endif %}">
+  <label for="{{ fid }}">{{ label }}{% if required %} <span class="req">(required)</span>{% endif %}</label>
+  {% if hint %}<p class="hint" id="{{ fid }}-hint">{{ hint }}</p>{% endif %}
+  {% if errors.get(name) %}<p class="error-text" id="{{ fid }}-err"><span aria-hidden="true">! </span>{{ errors[name] }}</p>{% endif %}
+  <input id="{{ fid }}" name="{{ name }}" type="{{ type }}" value="{{ values.get(name, '') }}"
+         {% if required %}required{% endif %}
+         {% if errors.get(name) %}aria-invalid="true"{% endif %}
+         {% if hint or errors.get(name) %}aria-describedby="{% if errors.get(name) %}{{ fid }}-err {% endif %}{% if hint %}{{ fid }}-hint{% endif %}"{% endif %}
+         {{ attrs|safe }}>
+</div>
+{%- endmacro %}
+
+{% macro category_select(name, selected, include_auto=False, id=None, label='Category', errors={}, only_expense=False) -%}
+{% set fid = id or ('f-' ~ name) %}
+<div class="field {% if errors.get(name) %}has-error{% endif %}">
+  <label for="{{ fid }}">{{ label }}</label>
+  {% if errors.get(name) %}<p class="error-text" id="{{ fid }}-err">{{ errors[name] }}</p>{% endif %}
+  <select id="{{ fid }}" name="{{ name }}" {% if errors.get(name) %}aria-invalid="true" aria-describedby="{{ fid }}-err"{% endif %}>
+    {% if include_auto %}<option value="auto" {% if selected in ('auto', '', None) %}selected{% endif %}>Choose automatically (rules)</option>{% endif %}
+    {% for group, title in [('expense', 'Spending'), ('income', 'Income'), ('transfer', 'Transfers')] %}
+    {% if not only_expense or group == 'expense' %}
+    <optgroup label="{{ title }}">
+      {% for c in CATEGORIES.values() if c.group == group %}
+      <option value="{{ c.id }}" {% if selected == c.id %}selected{% endif %}>{{ c.id|cat }}</option>
+      {% endfor %}
+    </optgroup>
+    {% endif %}
+    {% endfor %}
+  </select>
+</div>
+{%- endmacro %}
+
+{% macro status(status, text) -%}
+{% set icons = {'ok': '✓', 'watch': '◔', 'heading_over': '↗', 'over': '!'} %}
+<span class="status status-{{ status }}"><span class="status-icon" aria-hidden="true">{{ icons.get(status, 'i') }}</span>{{ text }}</span>
+{%- endmacro %}
+
+{% macro empty(title, body, href=None, action=None) -%}
+<div class="empty-state">
+  <p class="empty-title">{{ title }}</p>
+  <p>{{ body }}</p>
+  {% if href %}<p><a class="button" href="{{ href }}">{{ action }}</a></p>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro chart_block(svg, data, chart_id, caption, compare=False) -%}
+<figure class="chart-figure" data-chart="{{ chart_id }}" data-points="{{ data }}">
+  <ul class="legend" aria-label="Chart key">
+    <li><svg width="28" height="10" aria-hidden="true"><line class="actual" x1="0" y1="5" x2="28" y2="5"/></svg> Actual balance (solid)</li>
+    <li><svg width="28" height="10" aria-hidden="true"><line class="forecast" x1="0" y1="5" x2="28" y2="5"/></svg> Forecast, typical spending (dashed)</li>
+    <li><svg width="28" height="12" aria-hidden="true"><rect class="band" x="0" y="1" width="28" height="10"/><rect x="0" y="1" width="28" height="10" fill="url(#{{ chart_id }}-hatch)"/></svg> Likely range: best to worst month (shaded)</li>
+    {% if compare %}<li><svg width="28" height="10" aria-hidden="true"><line class="scenario" x1="0" y1="5" x2="28" y2="5"/></svg> What-if (dotted)</li>{% endif %}
+  </ul>
+  <div class="chart-wrap" tabindex="0" role="group"
+       aria-label="{{ caption }}. Press the left and right arrow keys to read values day by day, Home and End to jump."
+  >{{ svg|safe }}</div>
+  <p class="chart-readout" id="{{ chart_id }}-readout" aria-live="polite">Focus the chart and use the arrow keys, or point at it, to read exact values.</p>
+  <figcaption class="muted">{{ caption }}. The vertical axis starts at zero or below so changes are not exaggerated. Amounts in Pakistani rupees.</figcaption>
+</figure>
+{%- endmacro %}
+
+{% macro pager(page, args, endpoint) -%}
+{% if page.pages > 1 %}
+<nav class="pager" aria-label="Pages">
+  {% set base = args.to_dict() %}
+  {% if page.page > 1 %}{% set _ = base.update({'page': page.page - 1}) %}<a href="{{ url_for(endpoint, **base) }}" rel="prev">← Previous</a>{% endif %}
+  <span>Page {{ page.page }} of {{ page.pages }}</span>
+  {% if page.page < page.pages %}{% set _ = base.update({'page': page.page + 1}) %}<a href="{{ url_for(endpoint, **base) }}" rel="next">Next →</a>{% endif %}
+</nav>
+{% endif %}
+{%- endmacro %}

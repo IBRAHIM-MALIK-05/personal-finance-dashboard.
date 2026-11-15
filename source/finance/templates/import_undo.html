@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% set section = 'nav.import' %}
+{% block title %}Undo import{% endblock %}
+{% block content %}
+<h1>Undo the import of {{ p.batch.file_name }}?</h1>
+<section class="card">
+  <ul>
+    <li><strong>{{ p.unchanged|length }}</strong> imported transactions are unchanged and will be removed.</li>
+    {% if p.edited %}<li><strong>{{ p.edited|length }}</strong> imported transactions were <strong>edited after the import</strong> (for example, a category change).</li>{% endif %}
+    {% if p.missing %}<li>{{ p.missing|length }} were already deleted by hand. Nothing to do for those.</li>{% endif %}
+    <li>Transactions you added yourself, and other imports, are not affected.</li>
+  </ul>
+  {% if p.edited %}
+  <div class="table-wrap">
+  <table class="data"><caption>Edited after import</caption>
+    <thead><tr><th scope="col">Date</th><th scope="col">Payee</th><th scope="col">Category now</th><th class="num" scope="col">Amount</th></tr></thead>
+    <tbody>{% for r in p.edited %}<tr><td>{{ r.posted_on|human }}</td><td>{{ r.payee }}</td><td>{{ r.category_id|cat }}</td><td class="num">{{ r.amount|pkr(signed=True) }}</td></tr>{% endfor %}</tbody>
+  </table>
+  </div>
+  {% endif %}
+  <form method="post" action="{{ url_for('imports.undo', batch_id=p.batch.id) }}">
+    {{ csrf_field() }}
+    {% if p.edited %}
+    <fieldset><legend>What should happen to the edited transactions?</legend>
+      <label class="choice"><input type="radio" name="mode" value="keep_edited" checked>
+        <span><strong>Keep the {{ p.edited|length }} I edited</strong> and remove the rest. This is a <em>partial</em> undo, and it will be labelled that way.</span></label>
+      <label class="choice"><input type="radio" name="mode" value="full">
+        <span><strong>Remove everything from this import</strong>, including my edits.</span></label>
+    </fieldset>
+    {% else %}
+    <input type="hidden" name="mode" value="full">
+    {% endif %}
+    <div class="actions">
+      <button class="danger" type="submit">Undo the import</button>
+      <a href="{{ url_for('imports.batch', batch_id=p.batch.id) }}">Cancel, keep everything</a>
+    </div>
+    <p class="muted">You can restore the removed transactions afterwards from the import’s page.</p>
+  </form>
+</section>
+{% endblock %}

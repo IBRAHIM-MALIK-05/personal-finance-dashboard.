@@ -1,0 +1,5 @@
+<ol class="steps" aria-label="Import steps">
+  {% for n, label in [(1, 'Choose file'), (2, 'Check columns'), (3, 'Resolve issues'), (4, 'Done')] %}
+  <li {% if step == n %}aria-current="step"{% elif step > n %}class="done"{% endif %}>{{ label }}{% if step > n %}<span class="sr-only"> (completed)</span>{% endif %}</li>
+  {% endfor %}
+</ol>

@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% set section = 'nav.dashboard' %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+{% set lens = prefs.lens %}
+<div class="page-head">
+  <div>
+    <h1>{{ actor.workspace_name }}</h1>
+    <p>As of {{ v.as_of|human }} · {{ actor.role_label }}</p>
+  </div>
+  {% if actor.can('edit') and v.snap.txns %}
+  <a class="button secondary" href="{{ url_for('views.new_transaction') }}">+ Add transaction</a>
+  {% endif %}
+</div>
+
+{% if not v.snap.txns %}
+  {{ m.empty('No transactions yet',
+     'Import a CSV file from your bank or add your first transaction. The dashboard, budgets and forecast fill in from there.',
+     url_for('imports.start') if actor.can('import') else None, 'Import a CSV file') }}
+  {% if actor.can('edit') %}<p class="actions"><a href="{{ url_for('views.new_transaction') }}">Or add one transaction by hand</a></p>{% endif %}
+{% else %}
+
+{# --- headline sentence: plain language for beginners --- #}
+{% set over = v.statuses|selectattr('status', 'equalto', 'over')|list %}
+{% set heading = v.statuses|selectattr('status', 'equalto', 'heading_over')|list %}
+<p class="lede card" role="status">
+  {% if over %}<span class="status status-over"><span class="status-icon" aria-hidden="true">!</span>{{ over|length }} budget{{ 's' if over|length > 1 }} over the limit this month.</span>
+  {% elif heading %}<span class="status status-watch"><span class="status-icon" aria-hidden="true">↗</span>On track so far, but {{ heading|length }} budget{{ 's' if heading|length > 1 }} may go over by month end.</span>
+  {% else %}<span class="status status-ok"><span class="status-icon" aria-hidden="true">✓</span>You’re within all budgets this month.</span>{% endif %}
+</p>
+
+<section aria-labelledby="key-h" class="grid grid-3">
+  <h2 id="key-h" class="sr-only">Key numbers</h2>
+  {{ m.figure(v.free, 'lg', t('free_to_spend') ~ ' until month end',
+     'What’s left after bills, income still due and planned savings. Not advice.') }}
+  {{ m.figure(v.fc.balance_now, 'lg', t('balance_today')) }}
+  {{ m.figure(v.fc.closing, 'lg', t('forecast_balance') ~ ' in 30 days', 'Likely range ' ~ v.fc.closing_range.display) }}
+</section>
+
+<div class="grid grid-2">
+  <section class="card" aria-labelledby="att-h">
+    <h2 id="att-h">{{ t('needs_attention') }}</h2>
+    {% if v.attention %}
+    <ul class="attention">
+      {% for a in (v.attention if lens != 'summary' else v.attention[:3]) %}
+      <li class="att-{{ a.level }}"><span class="att-icon" aria-hidden="true">{{ a.icon }}</span>
+        <span>{{ a.text }} <a href="{{ a.href }}">Review<span class="sr-only">: {{ a.text }}</span></a></span></li>
+      {% endfor %}
+    </ul>
+    {% if lens == 'summary' and v.attention|length > 3 %}<p class="muted">{{ v.attention|length - 3 }} more in the Standard view.</p>{% endif %}
+    {% else %}
+    <p>Nothing needs your attention right now.</p>
+    {% endif %}
+  </section>
+
+  <section class="card" aria-labelledby="bills-h">
+    <h2 id="bills-h">Coming up</h2>
+    {% if v.upcoming %}
+    <ul class="attention">
+      {% for o in v.upcoming[:(4 if lens == 'summary' else 8)] %}
+      <li><span class="att-icon" aria-hidden="true">{{ '+' if o.bill.amount > 0 else '−' }}</span>
+        <span><strong>{{ o.bill.name }}</strong> {{ o.bill.amount|pkr(signed=True) }} ·
+        {% if o.status == 'overdue' %}<span class="status status-over">was due {{ o.due|human }}</span>
+        {% elif o.status == 'suggested' %}due {{ o.due|human }} · <span class="muted">may already be paid. <a href="{{ url_for('views.bills') }}#suggested">Confirm</a></span>
+        {% else %}due {{ o.due|human }}{% endif %}
+        {{ m.kind_badge('forecast') }}</span></li>
+      {% endfor %}
+    </ul>
+    {% else %}<p>No recurring bills or income are due soon. <a href="{{ url_for('views.bills') }}">Set up recurring items</a> to include them in the forecast.</p>{% endif %}
+  </section>
+</div>
+
+{% if lens == 'summary' %}
+<div class="actions">
+  <form class="inline-form" method="post" action="{{ url_for('views.set_prefs') }}">{{ csrf_field() }}
+    <input type="hidden" name="next" value="/"><button class="secondary" name="lens" value="standard">Show charts and budgets</button></form>
+</div>
+{% endif %}
+
+{% if lens != 'summary' %}
+<section class="card" aria-labelledby="cf-h">
+  <h2 id="cf-h">Balance: last 60 days and next 30 days</h2>
+  {{ m.chart_block(chart, chart_data, 'dash', 'Account balance, actual then forecast') }}
+  <p><a href="{{ url_for('views.forecast') }}">Open the full forecast, assumptions and table →</a></p>
+</section>
+
+<section class="card" aria-labelledby="bud-h">
+  <h2 id="bud-h">Budgets this month</h2>
+  {% if v.statuses %}
+  {% for s in v.statuses[:(6 if lens == 'standard' else 20)] %}
+  <div class="budget-row">
+    <div class="budget-head"><h3>{{ s.category_name }}</h3>{{ m.status(s.status, s.status_text) }}</div>
+    {{ bars[s.budget.category_id]|safe }}
+    <p class="budget-meta"><span>Spent {{ s.spent.display }} of {{ s.budget.monthly_limit|pkr }}</span>
+      <span>Forecast {{ s.projected.display }}</span><span>{{ s.days_left }} days left</span></p>
+    {% if lens == 'detailed' %}{{ m.explain(s.projected, title='How the month-end forecast is worked out') }}{% endif %}
+  </div>
+  {% endfor %}
+  <p><a href="{{ url_for('views.budgets') }}">All budgets →</a></p>
+  {% else %}
+  {{ m.empty('No budgets yet', 'Set a monthly limit for a category to see progress here.', url_for('views.budgets') if actor.can('edit') else None, 'Create a budget') }}
+  {% endif %}
+</section>
+{% endif %}
+
+{% if lens == 'detailed' %}
+<section class="card" aria-labelledby="var-h">
+  <h2 id="var-h">Variance: this month so far vs a typical month</h2>
+  <p class="muted">Bars show spending so far this month. The vertical mark shows a typical full month (median of the last three months).
+    This month is not finished, so a shorter bar is expected.</p>
+  {{ variance_chart|safe }}
+  <div class="table-wrap">
+  <table class="data">
+    <caption>Variance by category (table version of the chart)</caption>
+    <thead><tr><th scope="col">Category</th><th class="num" scope="col">This month so far</th><th class="num" scope="col">Typical month</th><th class="num" scope="col">Difference</th></tr></thead>
+    <tbody>
+    {% for r in v.variance %}
+    <tr><th scope="row">{{ r.name }}</th><td class="num">{{ r.this_month|pkr }}</td><td class="num">{{ r.typical|pkr }}</td>
+      <td class="num">{{ r.delta|pkr(signed=True) }}{% if r.pct is not none %} ({{ '%+d'|format(r.pct) }}%){% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="card" aria-labelledby="mt-h">
+  <h2 id="mt-h">Monthly cash flow</h2>
+  <div class="table-wrap">
+  <table class="data">
+    <caption>Income and spending by month (transfers to savings are excluded from both)</caption>
+    <thead><tr><th scope="col">Month</th><th class="num" scope="col">Income</th><th class="num" scope="col">Spending</th><th class="num" scope="col">Net</th></tr></thead>
+    <tbody>
+    {% for r in v.monthly %}
+    <tr><th scope="row">{{ r.label }}{% if r.partial %} <span class="muted">(so far)</span>{% endif %}</th>
+      <td class="num">{{ r.income|pkr }}</td><td class="num">{{ r.spending|pkr }}</td><td class="num">{{ r.net|pkr(signed=True) }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endif %}
+{% endif %}
+{% endblock %}

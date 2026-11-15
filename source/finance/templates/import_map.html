@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% set section = 'nav.import' %}
+{% set step = 2 %}
+{% block title %}Check columns{% endblock %}
+{% block content %}
+<h1>Check the columns in {{ draft.file_name }}</h1>
+{% include "_import_steps.html" %}
+<p>{{ a.rows|length }} rows found. Tell us what each column means. We have pre-filled our best guesses, so check them.</p>
+
+<section class="card" aria-labelledby="raw-h">
+  <h2 id="raw-h">First rows of the file, exactly as written</h2>
+  <div class="table-wrap">
+  <table class="data">
+    <caption class="sr-only">Raw preview</caption>
+    <thead><tr><th scope="col">Line</th>{% for h in a.header %}<th scope="col">{{ h }}</th>{% endfor %}</tr></thead>
+    <tbody>{% for r in sample_rows %}<tr><th scope="row">{{ r.row_no }}</th>{% for c in r.raw %}<td>{{ c[:60] }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+  </table>
+  </div>
+</section>
+
+<form method="post" class="card">
+  {{ csrf_field() }}
+  <fieldset><legend>Which column holds…</legend>
+    {% if a.missing %}<p class="error-text" role="alert">Still needed: {{ a.missing|map('replace', 'description', 'description or payee')|join(', ') }}.</p>{% endif %}
+    <div class="row-fields">
+    {% for f in fields %}
+      <div class="field"><label for="col-{{ f }}">{{ labels[f] }}{% if f in ('date', 'description', 'amount') %} <span class="req">(needed{% if f == 'amount' %}, or money out + money in{% endif %})</span>{% endif %}</label>
+        <select id="col-{{ f }}" name="col_{{ f }}">
+          <option value="">Not in this file</option>
+          {% for h in a.header %}<option value="{{ loop.index0 }}" {% if a.mapping.get(f) == loop.index0 %}selected{% endif %}>{{ h }}</option>{% endfor %}
+        </select></div>
+    {% endfor %}
+    </div>
+  </fieldset>
+
+  <fieldset {% if not a.sign %}class="has-error"{% endif %}><legend>How does this file show spending?</legend>
+    {% if a.sign == 'split' %}
+      <p>This file has separate money-out and money-in columns, so no choice is needed.</p>
+      <input type="hidden" name="sign" value="">
+    {% else %}
+    <p class="hint">{{ a.sign_evidence }}{% if a.sign_guess %} Our suggestion is pre-selected, but please confirm it.{% endif %}</p>
+    <label class="choice"><input type="radio" name="sign" value="negative_is_out" {% if (settings.sign or a.sign_guess) == 'negative_is_out' %}checked{% endif %}>
+      <span>Spending is <strong>negative</strong> (e.g. −850), income and refunds are positive</span></label>
+    <label class="choice"><input type="radio" name="sign" value="positive_is_out" {% if (settings.sign or a.sign_guess) == 'positive_is_out' %}checked{% endif %}>
+      <span>Spending is <strong>positive</strong> (e.g. 850), income and refunds are negative</span></label>
+    {% endif %}
+  </fieldset>
+
+  <fieldset><legend>Dates like 04/05/2026: day first or month first?</legend>
+    {% set ev = a.date_evidence %}
+    <p class="hint">{{ ev.DMY }} row(s) can only be day/month, {{ ev.MDY }} can only be month/day, and {{ ev.ambiguous }} could be either.
+      {% if ev.DMY > ev.MDY %}Most evidence points to day/month (DD/MM).{% elif ev.MDY > ev.DMY %}Most evidence points to month/day (MM/DD).{% endif %}
+      If you are not sure, leave this unset and decide row by row.</p>
+    <label class="choice"><input type="radio" name="date_order" value="DMY" {% if settings.date_order == 'DMY' %}checked{% endif %}> Day first (DD/MM/YYYY), common in Pakistan</label>
+    <label class="choice"><input type="radio" name="date_order" value="MDY" {% if settings.date_order == 'MDY' %}checked{% endif %}> Month first (MM/DD/YYYY)</label>
+    <label class="choice"><input type="radio" name="date_order" value="" {% if not settings.date_order %}checked{% endif %}> Don’t decide for the whole file. Ask me for each ambiguous row</label>
+  </fieldset>
+
+  <div class="actions">
+    <button class="primary" type="submit">Continue to review</button>
+  </div>
+</form>
+<form method="post" action="{{ url_for('imports.discard', draft_id=draft.id) }}">{{ csrf_field() }}<button class="link" type="submit">Cancel this import</button></form>
+{% endblock %}

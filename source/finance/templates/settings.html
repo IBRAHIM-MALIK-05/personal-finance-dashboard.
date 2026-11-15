@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% set section = 'nav.settings' %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<h1>Settings</h1>
+<section class="card" aria-labelledby="disp-h">
+  <h2 id="disp-h">Display</h2>
+  <form method="post" action="{{ url_for('views.set_prefs') }}">
+    {{ csrf_field() }}<input type="hidden" name="next" value="{{ url_for('views.settings') }}">
+    <div class="row-fields">
+      <div class="field"><label for="p-lens">Detail level</label>
+        <select id="p-lens" name="lens">{% for v, l in [('summary', 'Summary: plain numbers, fewest charts'), ('standard', 'Standard: charts and budgets'), ('detailed', 'Detailed: formulas and tables open')] %}<option value="{{ v }}" {% if prefs.lens == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="p-theme">Theme</label>
+        <select id="p-theme" name="theme">{% for v, l in [('system', 'Match my device'), ('light', 'Light'), ('dark', 'Dark'), ('contrast', 'High contrast')] %}<option value="{{ v }}" {% if prefs.theme == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="p-lang">Language</label>
+        <select id="p-lang" name="language"><option value="en" {% if prefs.language == 'en' %}selected{% endif %}>English</option><option value="ur" {% if prefs.language == 'ur' %}selected{% endif %} lang="ur">اردو (Urdu, right-to-left, partial)</option></select></div>
+      <div class="field"><label for="p-motion">Animation</label>
+        <select id="p-motion" name="reduced_motion">{% for v, l in [('system', 'Match my device'), ('on', 'Reduce motion'), ('off', 'Allow animation')] %}<option value="{{ v }}" {% if prefs.reduced_motion == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="p-hz">Default forecast length</label>
+        <select id="p-hz" name="horizon">{% for h in [30, 60, 90] %}<option value="{{ h }}" {% if prefs.horizon == h %}selected{% endif %}>{{ h }} days</option>{% endfor %}</select></div>
+    </div>
+    <button class="primary" type="submit">Save display settings</button>
+  </form>
+</section>
+
+{% if actor.can('manage_sharing') %}
+<section class="card" id="sharing" aria-labelledby="sh-h">
+  <h2 id="sh-h">Sharing with a financial coach</h2>
+  <p>Currently: {% if grant %}<strong>shared with Coach Sara ({{ 'summaries only' if grant.scope == 'summary' else 'full details' }})</strong> since {{ grant.granted_at.strftime('%d %b %Y') }}{% else %}<strong>not shared</strong>{% endif %}.
+    You can change or stop this at any time. Every change is recorded in Activity.</p>
+  <p class="muted">This is a simulation: the coach is a demo profile in this app, not a real person, and nothing leaves this computer.</p>
+  <form method="post" action="{{ url_for('views.sharing') }}">
+    {{ csrf_field() }}
+    <fieldset><legend>What can Coach Sara see?</legend>
+      <label class="choice"><input type="radio" name="scope" value="" {% if not grant %}checked{% endif %}> <span>Nothing (not shared)</span></label>
+      <label class="choice"><input type="radio" name="scope" value="summary" {% if grant and grant.scope == 'summary' %}checked{% endif %}> <span>Summaries: totals, budgets, forecast. <strong>No individual transactions.</strong></span></label>
+      <label class="choice"><input type="radio" name="scope" value="full" {% if grant and grant.scope == 'full' %}checked{% endif %}> <span>Full details, including every transaction</span></label>
+    </fieldset>
+    <button class="primary" type="submit">Save sharing choice</button>
+  </form>
+</section>
+{% endif %}
+
+{% if actor.can('edit') %}
+<section class="card" id="storage" aria-labelledby="st-h">
+  <h2 id="st-h">Storage</h2>
+  <p>Data is stored in: <strong>{{ db_description }}</strong>.</p>
+  <form method="post" action="{{ url_for('views.storage') }}">
+    {{ csrf_field() }}
+    <p>For testing error recovery you can simulate a storage failure: every save will fail safely until you switch it off.</p>
+    {% if storage_off %}<input type="hidden" name="simulate" value="0"><button class="primary" type="submit">Turn the storage-failure simulation off</button>
+    {% else %}<input type="hidden" name="simulate" value="1"><button class="secondary" type="submit">Simulate a storage failure</button>{% endif %}
+  </form>
+</section>
+
+<section class="card" id="data" aria-labelledby="dt-h">
+  <h2 id="dt-h">Demo data</h2>
+  <form method="post" action="{{ url_for('views.clear') }}" class="stack">
+    {{ csrf_field() }}
+    <p>Empty <strong>this</strong> budget to see the empty states. Type <strong>CLEAR</strong> to confirm.</p>
+    <div class="field"><label for="cl">Confirmation</label><input id="cl" name="confirm" autocomplete="off"></div>
+    <button class="danger" type="submit">Empty this budget</button>
+  </form>
+  <hr>
+  <form method="post" action="{{ url_for('views.reset') }}" class="stack">
+    {{ csrf_field() }}
+    <p>Reset <strong>all</strong> budgets to the original synthetic data. Type <strong>RESET</strong> to confirm.</p>
+    <div class="field"><label for="rs">Confirmation</label><input id="rs" name="confirm" autocomplete="off"></div>
+    <button class="danger" type="submit">Reset all demo data</button>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

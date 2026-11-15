@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% set section = 'nav.goals' %}
+{% block title %}Savings goals{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Savings goals</h1>
+  <p>Adding money to a goal sets it aside on paper. Your balance only changes if you also record a transfer to a savings account.</p></div></div>
+
+{% if not v.goals %}{{ m.empty('No goals yet', 'A goal is something you are saving towards, with a target and a date.') }}{% endif %}
+
+<div class="grid grid-2">
+{% for p in v.goals %}{% set gl = p.goal %}
+<section class="card" id="g-{{ gl.id }}" aria-labelledby="gh-{{ gl.id }}">
+  <h2 id="gh-{{ gl.id }}">{{ gl.name }}</h2>
+  <p>{{ m.status('ok' if p.on_track else ('over' if p.months_left == 0 and not p.done else 'watch'), status_sentence(p)) }}</p>
+  <label for="gp-{{ gl.id }}" class="muted">{{ gl.saved|pkr }} saved of {{ gl.target|pkr }} ({{ p.pct }}%)</label>
+  <progress id="gp-{{ gl.id }}" max="100" value="{{ p.pct }}">{{ p.pct }}%</progress>
+  <p class="budget-meta"><span>Deadline {{ gl.deadline|human }}</span><span>Your plan {{ gl.monthly_plan|pkr }}/month</span></p>
+  <div class="grid grid-2">
+    {{ m.figure(p.required_monthly, 'md') }}
+    {{ m.figure(p.projected_finish, 'md') }}
+  </div>
+  {% if actor.can('edit') and not p.done %}
+  <form method="post" action="{{ url_for('views.contribute', goal_id=gl.id) }}" class="stack">
+    {{ csrf_field() }}
+    <div class="field"><label for="ga-{{ gl.id }}">Add money to {{ gl.name }} (Rs)</label>
+      <input id="ga-{{ gl.id }}" name="amount" type="text" inputmode="decimal" required></div>
+    <label class="choice"><input type="checkbox" name="record_transfer" value="1">
+      <span>I also moved this money to a savings account (adds a transfer, which lowers this account’s balance)</span></label>
+    <button class="secondary" type="submit">Add contribution</button>
+  </form>
+  {% endif %}
+  {% if actor.can('edit') %}
+  <form method="post" action="{{ url_for('views.delete_goal', goal_id=gl.id) }}" data-confirm="Delete the goal {{ gl.name }}?">
+    {{ csrf_field() }}<button class="link" type="submit">Delete goal<span class="sr-only"> {{ gl.name }}</span></button></form>
+  {% endif %}
+</section>
+{% endfor %}
+</div>
+
+{% if actor.can('edit') %}
+<section class="card" aria-labelledby="ng-h">
+  <h2 id="ng-h">New goal</h2>
+  {% if errors %}<div class="error-summary" role="alert"><ul>{% for k, msg in errors.items() %}<li><a href="#f-{{ k }}">{{ msg }}</a></li>{% endfor %}</ul></div>{% endif %}
+  <form method="post" action="{{ url_for('views.new_goal') }}" novalidate>
+    {{ csrf_field() }}
+    {{ m.field('name', 'What are you saving for?', values, errors, required=True) }}
+    <div class="row-fields">
+      {{ m.field('target', 'Target (Rs)', values, errors, required=True, attrs='inputmode="decimal"') }}
+      {{ m.field('monthly_plan', 'Plan to add each month (Rs)', values, errors, attrs='inputmode="decimal"') }}
+      {{ m.field('deadline', 'Deadline', values, errors, type='date', required=True) }}
+    </div>
+    <button class="primary" type="submit">Create goal</button>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

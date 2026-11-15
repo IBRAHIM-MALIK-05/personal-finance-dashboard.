@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% macro body() %}
+<div class="card" role="alert">
+  <h1>{{ title }}</h1>
+  <p>{{ message }}</p>
+  {% if actions %}<div class="actions">{% for label, href in actions %}<a class="button {{ 'secondary' if not loop.first }}" href="{{ href }}">{{ label }}</a>{% endfor %}</div>{% endif %}
+  <p class="muted">Error code {{ code }}</p>
+</div>
+{% endmacro %}
+{% block content %}{{ body() }}{% endblock %}
+{% block solo %}{{ body() }}{% endblock %}

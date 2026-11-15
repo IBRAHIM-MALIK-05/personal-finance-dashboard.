@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% set section = 'nav.import' %}
+{% set step = 1 %}
+{% block title %}Import transactions{% endblock %}
+{% block content %}
+<h1>Import transactions from a CSV file</h1>
+{% include "_import_steps.html" %}
+
+{% if fatal %}
+<div class="error-summary" role="alert">
+  <p><strong>We couldn’t read {{ file_name }}.</strong></p>
+  <p>{{ fatal }}</p>
+  <p>Nothing was imported. Your existing data is unchanged.</p>
+</div>
+{% endif %}
+
+<div class="grid grid-2">
+  <section class="card" aria-labelledby="up-h">
+    <h2 id="up-h">Upload a bank export</h2>
+    <p>Most banks let you download a statement as CSV. Up to 2 MB or 5,000 rows. Nothing is saved until you review every row and confirm.</p>
+    <form method="post" enctype="multipart/form-data" action="{{ url_for('imports.upload') }}">
+      {{ csrf_field() }}
+      <div class="field"><label for="file">CSV file</label>
+        <input id="file" name="file" type="file" accept=".csv,text/csv" required aria-describedby="file-h">
+        <p class="hint" id="file-h">We never ask for bank passwords. Only upload files you created or downloaded yourself.</p></div>
+      <button class="primary" type="submit">Upload and check</button>
+    </form>
+  </section>
+  <section class="card" aria-labelledby="sm-h">
+    <h2 id="sm-h">Try the sample “messy” file</h2>
+    <p>A synthetic bank export with duplicates, mixed date formats, negative refunds and some broken rows. Use it to try the conflict-resolution screens.</p>
+    <form method="post" action="{{ url_for('imports.upload') }}">{{ csrf_field() }}<input type="hidden" name="sample" value="1">
+      <button class="secondary" type="submit">Use the sample file</button></form>
+    <p><a href="{{ url_for('imports.sample_download') }}">Download the sample to look at it first</a></p>
+  </section>
+</div>
+
+<section class="card" aria-labelledby="hist-h">
+  <h2 id="hist-h">Import history</h2>
+  {% if batches %}
+  <div class="table-wrap">
+  <table class="data responsive">
+    <caption class="sr-only">Previous imports</caption>
+    <thead><tr><th scope="col">When</th><th scope="col">File</th><th class="num" scope="col">Imported</th><th class="num" scope="col">Skipped</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+    <tbody>
+    {% for b in batches %}
+    <tr><td data-label="When">{{ b.imported_at.strftime('%d %b %Y %H:%M') }}</td><td data-label="File">{{ b.file_name }}</td>
+      <td data-label="Imported" class="num">{{ b.row_count }}</td><td data-label="Skipped" class="num">{{ b.skipped_count }}</td>
+      <td data-label="Status">{{ {'committed': 'Imported', 'undone': 'Undone', 'partial': 'Partly undone'}[b.status] }}</td>
+      <td data-label="Actions"><a href="{{ url_for('imports.batch', batch_id=b.id) }}">Details and undo<span class="sr-only"> for {{ b.file_name }}</span></a></td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}<p>No imports yet.</p>{% endif %}
+</section>
+{% endblock %}

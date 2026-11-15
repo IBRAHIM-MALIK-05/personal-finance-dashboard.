@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% set section = 'nav.import' %}
+{% set step = 4 %}
+{% block title %}Import result{% endblock %}
+{% block content %}
+<h1>{% if new %}Import complete{% else %}Import #{{ b.id }}: {{ b.file_name }}{% endif %}</h1>
+{% if new %}{% include "_import_steps.html" %}{% endif %}
+<section class="card" aria-labelledby="res-h">
+  <h2 id="res-h">What happened</h2>
+  <ul>
+    <li><strong>{{ b.summary.imported }}</strong> transactions imported from {{ b.file_name }} on {{ b.imported_at.strftime('%d %b %Y at %H:%M') }}.</li>
+    <li><strong>{{ b.summary.skipped }}</strong> rows skipped (listed below).</li>
+    {% if b.summary.refunds %}<li>{{ b.summary.refunds }} refund(s) were linked to their category. They reduce spending there; they are not income.</li>{% endif %}
+    {% if b.summary.kept_duplicates %}<li>{{ b.summary.kept_duplicates }} possible duplicate(s) were imported because you chose to keep them.</li>{% endif %}
+    <li>Status: <strong>{{ {'committed': 'Imported', 'undone': 'Undone (all imported rows removed)', 'partial': 'Partly undone (edited rows were kept)'}[b.status] }}</strong>{% if b.undone_at %} on {{ b.undone_at.strftime('%d %b %Y %H:%M') }}{% endif %}</li>
+  </ul>
+  <div class="actions">
+    {% if b.status == 'committed' %}
+      <a class="button" href="{{ url_for('views.transactions', batch=b.id) }}">See the imported transactions</a>
+      {% if actor.can('undo') %}<a class="button danger" href="{{ url_for('imports.undo_preview', batch_id=b.id) }}">Undo this whole import…</a>{% endif %}
+    {% else %}
+      {% if actor.can('undo') %}
+      <form method="post" action="{{ url_for('imports.redo', batch_id=b.id) }}">{{ csrf_field() }}
+        <button class="secondary" type="submit">Restore the removed transactions</button></form>
+      {% endif %}
+    {% endif %}
+    <a href="{{ url_for('imports.start') }}">Back to import</a>
+  </div>
+</section>
+{% if b.summary.skipped_rows %}
+<section class="card" aria-labelledby="sk-h">
+  <h2 id="sk-h">Skipped rows</h2>
+  <div class="table-wrap">
+  <table class="data">
+    <caption class="sr-only">Rows not imported, with the original values and why</caption>
+    <thead><tr><th scope="col">Line</th><th scope="col">Original values</th><th scope="col">Why it needed attention</th></tr></thead>
+    <tbody>
+    {% for s in b.summary.skipped_rows %}
+    <tr><th scope="row">{{ s.row }}</th><td class="raw">{{ s.raw|join(' | ') }}</td><td>{{ s.reasons|join(' ') or 'You chose to skip it.' }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endif %}
+{% endblock %}
