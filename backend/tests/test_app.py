@@ -570,7 +570,7 @@ def test_admin_sql_script_splits_into_whole_statements():
     creates = [s.split("(")[0].split()[-1] for s in statements if s.startswith("CREATE PROCEDURE")]
     views = [s.split()[4] for s in statements if s.startswith("CREATE OR REPLACE VIEW")]
     assert views == ["accounts_overview", "deleted_account_transactions"]  # deleted_accounts is a real table
-    assert creates == ["restore_account", "purge_account_rows", "purge_account", "purge_deleted_accounts"]
+    assert creates == ["restore_account", "purge_account", "purge_deleted_accounts"]
     assert all(s.rstrip().endswith("END") for s in statements if s.startswith("CREATE PROCEDURE"))
     assert not any(s.startswith(("DELIMITER", "USE")) for s in statements)
 

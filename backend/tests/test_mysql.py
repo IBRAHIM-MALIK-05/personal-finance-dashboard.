@@ -127,12 +127,14 @@ def _soft_deleted_account(d, email, pw="correct horse 42"):
 
 
 def _call(d, sql):
+    """Run a CALL; return its result rows (empty when the procedure returns none)."""
     with d.engine.begin() as c:
-        return c.exec_driver_sql(sql).fetchall()
+        result = c.exec_driver_sql(sql)
+        return result.fetchall() if result.returns_rows else []
 
 
 ADMIN_OBJECTS = ("VIEW accounts_overview", "VIEW deleted_account_transactions",
-                 "PROCEDURE restore_account", "PROCEDURE purge_account", "PROCEDURE purge_account_rows",
+                 "PROCEDURE restore_account", "PROCEDURE purge_account",
                  "PROCEDURE purge_deleted_accounts")
 
 
@@ -175,7 +177,7 @@ def test_old_deleted_accounts_view_becomes_a_table(mdb):
     assert "added table deleted_accounts" in changes and _listed(mdb, pid) == 1
     with mdb.engine.begin() as c:
         for obj in ("VIEW accounts_overview", "VIEW deleted_account_transactions", "PROCEDURE restore_account",
-                    "PROCEDURE purge_account", "PROCEDURE purge_account_rows", "PROCEDURE purge_deleted_accounts"):
+                    "PROCEDURE purge_account", "PROCEDURE purge_deleted_accounts"):
             c.exec_driver_sql(f"DROP {obj.split()[0]} IF EXISTS {obj.split()[1]}")
 
 
@@ -205,7 +207,7 @@ def test_purge_account_removes_everything_and_only_that(admin_db):
     with admin_db.read() as c:
         ws = c.execute(text("SELECT workspace_id FROM memberships WHERE profile_id = :p"), {"p": pid}).scalar()
         demo_before = c.execute(text("SELECT COUNT(*) FROM transactions WHERE workspace_id <> :w"), {"w": ws}).scalar()
-    assert "Permanently deleted" in _call(admin_db, f"CALL purge_account('{pid}')")[0][0]
+    _call(admin_db, f"CALL purge_account('{pid}')")
     with admin_db.read() as c:
         left = [c.execute(text(q), {"p": pid, "w": ws}).scalar() for q in (
             "SELECT COUNT(*) FROM profiles WHERE id = :p", "SELECT COUNT(*) FROM workspaces WHERE id = :w",

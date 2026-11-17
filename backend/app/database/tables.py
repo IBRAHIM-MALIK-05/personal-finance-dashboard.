@@ -1,8 +1,8 @@
 """Database schema: every table, defined once with SQLAlchemy Core.
 
 Only portable constructs are used, so the same schema runs on MySQL 8 (the app)
-and SQLite (the tests).  ``scripts/export_schema.py`` writes the MySQL DDL to
-``database/schema.sql`` for MySQL Workbench.  Money columns hold paisa (BIGINT).
+and SQLite (the tests).  The app creates the tables itself; MySQL Workbench shows them under
+hci_finance -> Tables.  Money columns hold paisa (BIGINT).
 """
 from __future__ import annotations
 

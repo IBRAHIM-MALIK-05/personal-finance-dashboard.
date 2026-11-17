@@ -33,7 +33,7 @@ backend/                     Python (Flask)
 │  ├─ engine/                pure calculations, no database (forecast, budgets, importer, ...)
 │  ├─ charts/                SVG charts drawn by code
 │  └─ database/              Python access to the database: tables, connection, migrations, seed
-├─ scripts/                  generate_data.py, export_schema.py
+├─ scripts/                  generate_data.py (sample data files)
 └─ tests/
 
 frontend/                    what the browser gets
@@ -48,8 +48,8 @@ frontend/                    what the browser gets
 
 database/                    MySQL scripts, opened in MySQL Workbench
 ├─ setup_mysql.sql           create the databases and the app user (run once)
-├─ schema.sql                every table (generated from backend/app/database/tables.py)
 └─ account_admin.sql         soft-deleted accounts: views and restore / purge procedures
+                             (the app creates its own tables and installs this file itself)
 ```
 
 How a request flows: `routes/` checks the request and calls `services/` (which check permissions and talk to the
@@ -142,13 +142,12 @@ python -B -m pytest -p no:cacheprovider
 | `tests/test_app.py` | the app end to end on a throw-away SQLite file: pages, roles, accounts, soft delete, acceptance cases |
 | `tests/test_mysql.py` | the critical paths on MySQL; runs only when `TEST_DATABASE_URL` is set in `backend/.env` |
 
-## Scripts
+## Sample data
 
 Run from `backend/`:
 
 ```powershell
 python scripts\generate_data.py --out generated-data   # sample data files
-python scripts\export_schema.py                        # rewrite database/schema.sql
 ```
 
 ## Known limitations
