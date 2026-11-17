@@ -1,0 +1,125 @@
+{% extends "layouts/base.html" %}
+{% import "components/macros.html" as m with context %}
+{% import "components/icons.html" as ic %}
+{% block title %}What-if{% endblock %}
+{% block content %}
+{{ m.page_header('What-if scenarios', 'Try changes safely. Nothing here changes your real transactions or bills.') }}
+
+<div class="cols-main">
+<section class="card" aria-labelledby="add-h">
+  <h2 id="add-h">Add a change</h2>
+
+  <form method="post" action="{{ url_for('whatif.add') }}" class="change-form">
+    {{ csrf_field() }}<input type="hidden" name="kind" value="cancel_bill">
+    <h3>{{ ic.icon('x', 18) }}Cancel a recurring bill</h3>
+    <div class="row-fields">
+      <div class="field"><label for="wb">Bill</label>
+        <select id="wb" name="bill_id">{% for b in v.snap.bills if b.active and b.amount < 0 %}<option value="{{ b.id }}">{{ b.name }} ({{ b.amount|pkr }} {{ b.cadence }})</option>{% endfor %}</select></div>
+      <div class="actions"><button class="secondary" type="submit">Add: cancel this bill</button></div>
+    </div>
+  </form>
+
+  <form method="post" action="{{ url_for('whatif.add') }}" class="change-form">
+    {{ csrf_field() }}<input type="hidden" name="kind" value="scale_category">
+    <h3>{{ ic.icon('pie', 18) }}Spend more or less on a category</h3>
+    <div class="row-fields">
+      <div class="field"><label for="wc">Category</label>
+        <select id="wc" name="category_id">{% for c in categories %}<option value="{{ c }}">{{ c|cat }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="wp">Change (%)</label>
+        <p class="hint" id="wp-h">-20 means 20% less; 10 means 10% more.</p>
+        <input id="wp" name="percent" type="number" min="-100" max="300" step="5" value="-20" aria-describedby="wp-h"></div>
+    </div>
+    <button class="secondary" type="submit">Add: change spending</button>
+  </form>
+
+  <form method="post" action="{{ url_for('whatif.add') }}" class="change-form">
+    {{ csrf_field() }}<input type="hidden" name="kind" value="one_off">
+    <h3>{{ ic.icon('calendar', 18) }}A one-off item</h3>
+    <div class="row-fields">
+      <div class="field"><label for="wl">What is it?</label><input id="wl" name="label" type="text" maxlength="60" placeholder="e.g. Wedding gift"></div>
+      <div class="field"><label for="wa">Amount (Rs)</label><input id="wa" name="amount" inputmode="decimal" required></div>
+      <div class="field"><label for="wd">Date</label><input id="wd" name="on" type="date" required min="{{ today.isoformat() }}"></div>
+    </div>
+    <fieldset><legend>Money in or out?</legend>
+      <label class="choice"><input type="radio" name="direction" value="out" checked> Out</label>
+      <label class="choice"><input type="radio" name="direction" value="in"> In</label></fieldset>
+    <button class="secondary" type="submit">Add: one-off item</button>
+  </form>
+
+  <form method="post" action="{{ url_for('whatif.add') }}" class="change-form">
+    {{ csrf_field() }}<input type="hidden" name="kind" value="add_recurring">
+    <h3>{{ ic.icon('repeat', 18) }}A new regular item</h3>
+    <div class="row-fields">
+      <div class="field"><label for="rl">What is it?</label><input id="rl" name="label" maxlength="60" placeholder="e.g. Part-time job"></div>
+      <div class="field"><label for="ra">Amount (Rs)</label><input id="ra" name="amount" inputmode="decimal" required></div>
+    </div>
+    <div class="row-fields">
+      <div class="field"><label for="rc">How often</label><select id="rc" name="cadence"><option>weekly</option><option selected>monthly</option></select></div>
+      <div class="field"><label for="rd">Starting</label><input id="rd" name="on" type="date" required min="{{ today.isoformat() }}"></div>
+    </div>
+    <fieldset><legend>Money in or out?</legend>
+      <label class="choice"><input type="radio" name="direction" value="out" checked> Out</label>
+      <label class="choice"><input type="radio" name="direction" value="in"> In</label></fieldset>
+    <button class="secondary" type="submit">Add: regular item</button>
+  </form>
+</section>
+
+<section class="card" id="result" aria-labelledby="res-h">
+  <h2 id="res-h">Your changes {% if adjs %}<span class="count-pill">{{ adjs|length }}</span>{% endif %}</h2>
+  {% if adjs %}
+  <ol class="change-list">
+    {% for i, text in adjs %}
+    <li><span>{{ text }}</span> {{ m.kind_badge('plan') }}
+      <form class="inline-form" method="post" action="{{ url_for('whatif.remove', index=i) }}">{{ csrf_field() }}
+        <button class="link" type="submit">Remove<span class="sr-only"> {{ text }}</span></button></form></li>
+    {% endfor %}
+  </ol>
+  {% if delta %}{{ m.figure(delta, 'lg', icon='split', primary=True) }}{% endif %}
+  <form class="actions" method="post" action="{{ url_for('whatif.clear') }}">{{ csrf_field() }}<button class="secondary" type="submit">Clear all changes</button></form>
+  {% if actor.can('edit') %}
+  <form method="post" action="{{ url_for('whatif.save') }}" class="row-fields card-footer">
+    {{ csrf_field() }}
+    <div class="field"><label for="sn">Save as</label><input id="sn" name="name" maxlength="80" value="{{ draft.name }}"></div>
+    <div class="actions"><button class="primary" type="submit">Save scenario</button></div>
+  </form>
+  {% endif %}
+  {% else %}
+  <p class="muted">No changes yet. Add one on the left, or load a saved scenario below.</p>
+  {% endif %}
+
+  {% if saved %}
+  <div class="card-footer">
+    <h3>Saved scenarios</h3>
+    <ul class="change-list">
+      {% for s in saved %}
+      <li><span>{{ s.name }}</span>
+        <form class="inline-form" method="post" action="{{ url_for('whatif.load', scenario_id=s.id) }}">{{ csrf_field() }}<button class="link" type="submit">Load<span class="sr-only"> {{ s.name }}</span></button></form>
+        {% if actor.can('edit') %}<form class="inline-form" method="post" action="{{ url_for('whatif.delete', scenario_id=s.id) }}" data-confirm="Delete saved scenario {{ s.name }}?">{{ csrf_field() }}<button class="link danger-link" type="submit">Delete<span class="sr-only"> {{ s.name }}</span></button></form>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+</section>
+</div>
+
+{% if chart %}
+<section class="card" aria-labelledby="cmp-h">
+  <div class="card-header"><div><h2 id="cmp-h">Forecast with and without your changes</h2><p>Next {{ horizon }} days</p></div></div>
+  {{ m.chart_block(chart, chart_data, 'wi', 'Balance forecast: current plan dashed, what-if dotted', compare=(alt is not none)) }}
+  {% if alt %}
+  <div class="mt-2 table-wrap">
+  <table class="data">
+    <caption>Comparison at the end of the period</caption>
+    <thead><tr><th scope="col"></th><th class="num" scope="col">Without changes</th><th class="num" scope="col">With changes</th></tr></thead>
+    <tbody>
+      <tr><th scope="row">Balance on {{ v.fc.end|human }}</th><td class="num">{{ v.fc.closing.display }}</td><td class="num">{{ alt.closing.display }}</td></tr>
+      <tr><th scope="row">Lowest balance</th><td class="num">{{ v.fc.lowest.display }}</td><td class="num">{{ alt.lowest.display }}</td></tr>
+      <tr><th scope="row">Monthly variable spending</th><td class="num">{{ v.fc.variable.display }}</td><td class="num">{{ alt.variable.display }}</td></tr>
+    </tbody>
+  </table>
+  </div>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,34 @@
+{% extends "layouts/base.html" %}
+{% set layout = "solo" %}
+{% import "components/icons.html" as ic %}
+{% block title %}Log in{% endblock %}
+{% block solo %}
+<div class="auth">
+  <div class="welcome">
+    <span class="brand-mark">{{ ic.icon('logo', 28, 2.2) }}</span>
+    <h1>Welcome back</h1>
+    <p>Log in to see your budget, bills and forecast.</p>
+  </div>
+
+  <form class="card" method="post" action="{{ url_for('auth.login') }}" novalidate>
+    {{ csrf_field() }}
+    {% if error %}
+    <div class="error-summary" role="alert"><p><strong>{{ error }}</strong></p></div>
+    {% endif %}
+    <div class="field">
+      <label for="email">Email</label>
+      <input id="email" name="email" type="email" autocomplete="email" value="{{ email }}" required
+             {% if error %}aria-invalid="true"{% endif %}>
+    </div>
+    <div class="field">
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required
+             {% if error %}aria-invalid="true"{% endif %}>
+    </div>
+    <button class="primary wide" type="submit">Log in</button>
+  </form>
+
+  <p class="center">New here? <a href="{{ url_for('auth.signup') }}">Create an account</a></p>
+  <p class="center auth-demo"><a class="button ghost" href="{{ url_for('profiles.index') }}">{{ ic.icon('play', 18) }}Try the demo with sample data</a></p>
+</div>
+{% endblock %}

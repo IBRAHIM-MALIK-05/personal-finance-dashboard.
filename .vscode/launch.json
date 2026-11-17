@@ -5,9 +5,9 @@
       "name": "Run the app",
       "type": "debugpy",
       "request": "launch",
-      "program": "${workspaceFolder}/source/app.py",
-      "cwd": "${workspaceFolder}/source",
-      "python": "${workspaceFolder}/source/.venv/Scripts/python.exe",
+      "program": "${workspaceFolder}/backend/run.py",
+      "cwd": "${workspaceFolder}/backend",
+      "python": "${workspaceFolder}/backend/.venv/Scripts/python.exe",
       "console": "integratedTerminal",
       "justMyCode": true
     },
@@ -15,10 +15,10 @@
       "name": "Run the app (reset demo data first)",
       "type": "debugpy",
       "request": "launch",
-      "program": "${workspaceFolder}/source/app.py",
+      "program": "${workspaceFolder}/backend/run.py",
       "args": ["--reset"],
-      "cwd": "${workspaceFolder}/source",
-      "python": "${workspaceFolder}/source/.venv/Scripts/python.exe",
+      "cwd": "${workspaceFolder}/backend",
+      "python": "${workspaceFolder}/backend/.venv/Scripts/python.exe",
       "console": "integratedTerminal"
     }
   ]

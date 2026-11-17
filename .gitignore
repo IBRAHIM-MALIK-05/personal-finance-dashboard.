@@ -2,12 +2,13 @@
 __pycache__/
 *.pyc
 .pytest_cache/
-source/.venv/
+.venv/
 .codex/
 
-# Local runtime data and secrets
-source/instance/
-source/.env
+# Local runtime data, secrets and generated files
+backend/instance/
+backend/.env
+backend/generated-data/
 
-# Course handbook (not our work)
-HCI_Advanced_Project_Handbook_5th_Semester_CCP.docx
+# Course material is kept outside this repository
+*.docx

@@ -1,0 +1,81 @@
+{% extends "layouts/base.html" %}
+{% import "components/macros.html" as m with context %}
+{% import "components/icons.html" as ic %}
+{% block title %}Recurring bills and income{% endblock %}
+{% block content %}
+{% call m.page_header('Recurring bills and income', 'These drive the forecast. Anything not listed here is treated as everyday (variable) spending.') %}
+  {% if actor.can('edit') %}<a class="button" href="{{ url_for('bills.new') }}">{{ ic.icon('plus', 18) }}Add recurring item</a>{% endif %}
+{% endcall %}
+
+<form class="card toolbar" method="get" role="search" aria-label="Find a recurring item">
+  <div class="field"><label for="bq">Find a bill or income</label><input id="bq" type="search" name="q" value="{{ q }}"></div>
+  <div class="actions"><button class="primary" type="submit">{{ ic.icon('search', 18) }}Search</button>
+    {% if q %}<a class="button ghost" href="{{ url_for('bills.index') }}">Clear</a>{% endif %}</div>
+</form>
+
+{% if v.suggested %}
+<section class="card" id="suggested" aria-labelledby="sug-h">
+  <div class="card-header"><div><h2 id="sug-h">Payments that look like a bill <span class="count-pill">{{ v.suggested|length }}</span></h2>
+    <p>These match a bill’s payee and amount, but nothing links them yet. Until you confirm, the forecast still expects the bill.</p></div></div>
+  <ul class="alert-list">
+  {% for o in v.suggested %}
+    <li class="alert-item alert-info">
+      <span class="alert-icon">{{ ic.icon('help', 18) }}</span>
+      <div class="alert-body">
+        <p><strong>{{ o.bill.name }}</strong> due {{ o.due|human }} · looks paid by {{ o.txn.payee }} {{ o.txn.amount|pkr }} on {{ o.txn.posted_on|human }}</p>
+        {% if actor.can('edit') %}
+        <form class="inline-form" method="post" action="{{ url_for('bills.confirm_payment', bill_id=o.bill.id) }}">
+          {{ csrf_field() }}<input type="hidden" name="occurrence" value="{{ o.due.isoformat() }}">
+          <input type="hidden" name="txn_id" value="{{ o.txn.id }}"><input type="hidden" name="version" value="{{ o.txn.version }}">
+          <button class="link" type="submit">Confirm it’s this bill<span class="sr-only">: {{ o.bill.name }} {{ o.due|human }}</span></button>
+        </form>{% endif %}
+      </div>
+    </li>
+  {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% for title, rows, hid in [('Income', income, 'inc'), ('Bills and regular payments', outgoing, 'out')] %}
+<section class="card" aria-labelledby="{{ hid }}-h">
+  <div class="card-header"><h2 id="{{ hid }}-h">{{ title }} <span class="count-pill">{{ rows|length }}</span></h2></div>
+  {% if rows %}
+  <div class="table-wrap">
+  <table class="data responsive">
+    <caption class="sr-only">{{ title }}</caption>
+    <thead><tr><th scope="col">Name</th><th scope="col">How often</th><th class="num" scope="col">Amount</th><th class="num" scope="col">Per month</th><th scope="col">Next</th>{% if actor.can('edit') %}<th scope="col"><span class="sr-only">Actions</span></th>{% endif %}</tr></thead>
+    <tbody>
+    {% for r in rows %}{% set b = r.bill %}
+    <tr>
+      <td data-label="Name"><span class="cell-title">{{ b.name }}</span><span class="cell-sub">{{ b.payee }} · {{ b.category_id|cat }}{% if b.tolerance_pct >= 25 %} · varies ±{{ b.tolerance_pct }}%{% endif %}</span></td>
+      <td data-label="How often">{{ b.cadence|capitalize }}</td>
+      <td data-label="Amount" class="num cell-title {% if b.amount > 0 %}amt-in{% endif %}">{{ b.amount|pkr(signed=True) }}</td>
+      <td data-label="Per month" class="num">{{ r.monthly|pkr(signed=True) }}</td>
+      <td data-label="Next">
+        {% if not b.active %}{{ m.status('neutral', 'Paused') }}
+        {% elif r.next %}
+          {% if r.next.status == 'overdue' %}{{ m.status('over', 'Was due ' ~ (r.next.due|human) ~ ', not seen') }}
+          {% elif r.next.status == 'suggested' %}{{ r.next.due|human }} <span class="cell-sub">May be paid; confirm above</span>
+          {% else %}{{ r.next.due|human }}{% endif %}
+        {% else %}—{% endif %}
+      </td>
+      {% if actor.can('edit') %}
+      <td class="nowrap" data-label="Actions">
+        <a class="button ghost" href="{{ url_for('bills.edit', bill_id=b.id) }}">{{ ic.icon('edit', 16) }}Edit<span class="sr-only"> {{ b.name }}</span></a>
+        <form class="inline-form" method="post" action="{{ url_for('bills.toggle', bill_id=b.id) }}">
+          {{ csrf_field() }}<input type="hidden" name="version" value="{{ b.version }}"><input type="hidden" name="active" value="{{ '0' if b.active else '1' }}">
+          <button class="link" type="submit">{{ 'Pause' if b.active else 'Resume' }}<span class="sr-only"> {{ b.name }}</span></button>
+        </form>
+      </td>
+      {% endif %}
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p class="muted">{% if q %}No {{ title|lower }} match “{{ q }}”.{% else %}None set up yet.{% endif %}</p>
+  {% endif %}
+</section>
+{% endfor %}
+{% endblock %}

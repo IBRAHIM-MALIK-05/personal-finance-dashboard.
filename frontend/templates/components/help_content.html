@@ -1,0 +1,28 @@
+{% import "components/macros.html" as m with context %}
+{{ m.page_header('How the numbers work', 'What every label means, how the forecast is built, and the limits of this prototype.') }}
+<div class="cols-2">
+  <section class="card"><h2>Actual, forecast and plan</h2>
+    <p>Every number carries a label with a shape, so you never have to rely on colour:</p>
+    <ul>
+      <li>{{ m.kind_badge('actual') }} calculated only from transactions that have happened.</li>
+      <li>{{ m.kind_badge('forecast') }} an estimate about the future. It can be wrong.</li>
+      <li>{{ m.kind_badge('mixed') }} part history, part estimate (for example a month-end budget forecast).</li>
+      <li>{{ m.kind_badge('plan') }} a number you chose, such as a savings plan or a what-if change.</li>
+    </ul>
+    <p class="m-0">Select <em>“How is this worked out?”</em> under any number to see the formula, every input and the assumptions.</p>
+  </section>
+  <section class="card"><h2>The forecast</h2>
+    <p class="m-0">Balance today, plus recurring income and bills that have not happened yet, minus typical everyday spending.
+       Typical spending is the median of your last three full months for each category. The shaded range shows what
+       happens if you spend like your lowest or highest month. A recurring bill counts as paid only when a transaction is
+       linked to it. A payment that just looks similar is shown as “may already be paid” until you confirm it.</p>
+  </section>
+</div>
+<section class="card"><h2>Limits of this prototype</h2>
+  <ul class="m-0">
+    <li>It is not connected to any bank and never asks for bank passwords. You add transactions yourself or import a CSV file.</li>
+    <li>Your account’s budget is private to you. The demo budgets use made-up data, are shared by everyone trying the demo, and can be reset.</li>
+    <li>The financial coach exists only in the demo. Nothing is sent anywhere.</li>
+    <li>This is a learning prototype. It does not give financial or investment advice.</li>
+  </ul>
+</section>

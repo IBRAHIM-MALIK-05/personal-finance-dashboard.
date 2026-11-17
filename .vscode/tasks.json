@@ -4,8 +4,8 @@
     {
       "label": "Run the app",
       "type": "shell",
-      "command": "${workspaceFolder}\\source\\.venv\\Scripts\\python.exe app.py",
-      "options": { "cwd": "${workspaceFolder}\\source" },
+      "command": "${workspaceFolder}\\backend\\.venv\\Scripts\\python.exe run.py",
+      "options": { "cwd": "${workspaceFolder}\\backend" },
       "isBackground": true,
       "problemMatcher": [],
       "presentation": { "reveal": "always", "panel": "dedicated" }
@@ -13,8 +13,8 @@
     {
       "label": "Run the tests",
       "type": "shell",
-      "command": "${workspaceFolder}\\source\\.venv\\Scripts\\python.exe -m pytest",
-      "options": { "cwd": "${workspaceFolder}\\source" },
+      "command": "${workspaceFolder}\\backend\\.venv\\Scripts\\python.exe -m pytest",
+      "options": { "cwd": "${workspaceFolder}\\backend" },
       "group": { "kind": "test", "isDefault": true },
       "problemMatcher": []
     }

@@ -1,0 +1,27 @@
+{% extends "layouts/base.html" %}
+{% import "components/macros.html" as m with context %}
+{% import "components/icons.html" as ic %}
+{% block title %}Clients{% endblock %}
+{% block content %}
+{{ m.page_header('Your clients', 'You only see budgets a household chose to share, at the level they chose. You can’t change their data, but you can leave notes on budgets.') }}
+<div class="cols-2">
+  {% for c in clients %}
+  <section class="card" aria-labelledby="cl-{{ c.workspace.id }}">
+    <div class="card-header">
+      <h2 id="cl-{{ c.workspace.id }}"><span class="avatar" aria-hidden="true">{{ c.workspace.name|initials }}</span>{{ c.workspace.name }}</h2>
+    </div>
+    {% if c.grant and not c.grant.revoked_at %}
+      <p>{{ m.status('ok', 'Shared with you: ' ~ ('summaries only' if c.grant.scope == 'summary' else 'full details')) }}</p>
+      <p class="small muted">Since {{ c.grant.granted_at.strftime('%d %b %Y') }}</p>
+      <form method="post" action="{{ url_for('profiles.switch_workspace') }}">{{ csrf_field() }}
+        <input type="hidden" name="workspace_id" value="{{ c.workspace.id }}">
+        <button class="primary" type="submit">Open {{ c.workspace.name }} (read-only){{ ic.icon('arrow', 18) }}</button></form>
+    {% else %}
+      <p>{{ m.status('neutral', 'Not shared with you') }}</p>
+      {% if c.grant and c.grant.revoked_at %}<p class="small muted">Sharing stopped on {{ c.grant.revoked_at.strftime('%d %b %Y') }}.</p>{% endif %}
+      <p class="small muted">Ask the household to share from their Settings page. You will see nothing until they do.</p>
+    {% endif %}
+  </section>
+  {% endfor %}
+</div>
+{% endblock %}

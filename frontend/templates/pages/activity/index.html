@@ -1,0 +1,24 @@
+{% extends "layouts/base.html" %}
+{% import "components/macros.html" as m with context %}
+{% block title %}Activity{% endblock %}
+{% block content %}
+{{ m.page_header('Activity', 'Every change to this budget, newest first: who did it and when.') }}
+{% if entries %}
+<section class="card">
+  <p class="small muted">Imports can be undone from <a href="{{ url_for('imports.start') }}">Import history</a>.</p>
+  <div class="table-wrap">
+  <table class="data responsive">
+    <caption class="sr-only">Audit log</caption>
+    <thead><tr><th scope="col">When</th><th scope="col">Who</th><th scope="col">What</th></tr></thead>
+    <tbody>
+    {% for e in entries %}
+    <tr><td class="nowrap" data-label="When">{{ e.at.strftime('%d %b %Y, %H:%M') }}</td><td data-label="Who">{{ e.display_name }}</td><td data-label="What">{{ e.detail }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% else %}
+{{ m.empty('No activity yet', 'Changes to this budget will be listed here.', icon='clock') }}
+{% endif %}
+{% endblock %}

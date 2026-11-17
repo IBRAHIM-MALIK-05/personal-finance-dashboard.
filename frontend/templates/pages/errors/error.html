@@ -1,0 +1,14 @@
+{% extends "layouts/base.html" %}
+{% import "components/icons.html" as ic %}
+{% block title %}{{ title }}{% endblock %}
+{% macro body() %}
+<section class="error-card card" role="alert">
+  <span class="empty-icon-danger" aria-hidden="true">{{ ic.icon('alert', 26) }}</span>
+  <h1 class="mb-1">{{ title }}</h1>
+  <p>{{ message }}</p>
+  {% if actions %}<div class="center actions">{% for label, href in actions %}<a class="button {{ 'secondary' if not loop.first }}" href="{{ href }}">{{ label }}</a>{% endfor %}</div>{% endif %}
+  <p class="small mt-2 mb-0 muted">Error code {{ code }}</p>
+</section>
+{% endmacro %}
+{% block content %}{{ body() }}{% endblock %}
+{% block solo %}{{ body() }}{% endblock %}

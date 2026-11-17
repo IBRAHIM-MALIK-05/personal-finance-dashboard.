@@ -1,0 +1,42 @@
+{% extends "layouts/base.html" %}
+{% set layout = "solo" %}{# always the full-screen picker, even when a profile is already active #}
+{% import "components/macros.html" as m with context %}
+{% import "components/icons.html" as ic %}
+{% block title %}Try the demo{% endblock %}
+{% block solo %}
+<div class="welcome">
+  <span class="brand-mark">{{ ic.icon('logo', 28, 2.2) }}</span>
+  <h1>Try the demo</h1>
+  <p>Explore the dashboard with made-up (synthetic) data. Pick a person to see it as they would.
+    Anything you change here can be reset, and these budgets are shared by everyone trying the demo.</p>
+</div>
+
+{% if reason == 'no_access' %}
+{{ m.flash('info', 'That profile can no longer open any budget. For a coach, this means the household stopped sharing.') }}
+{% endif %}
+
+<form method="post" action="{{ url_for('profiles.choose') }}">
+  {{ csrf_field() }}
+  <ul class="profile-list">
+    {% for p in profiles %}
+    <li>
+      <button class="profile-card" type="submit" name="profile_id" value="{{ p.id }}">
+        <span class="avatar" aria-hidden="true">{{ p.display_name|initials }}</span>
+        <span class="profile-name">{{ p.display_name }}</span>
+        <span class="profile-role">{{ role_labels[p.role] }}</span>
+        <span class="profile-blurb">{{ p.blurb }}</span>
+      </button>
+    </li>
+    {% endfor %}
+  </ul>
+</form>
+
+<section class="card">
+  <h2>{{ ic.icon('user', 18) }} Want to track your own money?</h2>
+  <p class="muted">Create a free account to get your own private budget, starting empty.</p>
+  <div class="actions mt-0">
+    <a class="button" href="{{ url_for('auth.signup') }}">Create an account</a>
+    <a class="button secondary" href="{{ url_for('auth.login') }}">Log in</a>
+  </div>
+</section>
+{% endblock %}

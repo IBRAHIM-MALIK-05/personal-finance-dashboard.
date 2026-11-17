@@ -1,0 +1,99 @@
+{#- Main navigation, defined once and drawn twice: the desktop sidebar and the
+    phone bottom bar.  The current page is the one whose blueprint is active. -#}
+{% import "components/icons.html" as ic %}
+
+{% macro nav_groups(actor) -%}
+  {% set overview = [] %}
+  {% if actor.role == 'coach' %}{% set _ = overview.append(('coach.index', 'Clients', 'users')) %}{% endif %}
+  {% set _ = overview.append(('dashboard.index', 'Dashboard', 'dashboard')) %}
+  {% if actor.can('view_details') %}{% set _ = overview.append(('transactions.index', 'Transactions', 'list')) %}{% endif %}
+
+  {% set planning = [('budgets.index', 'Budgets', 'pie'), ('bills.index', 'Recurring', 'repeat'),
+                     ('goals.index', 'Goals', 'target'), ('forecast.index', 'Forecast', 'trend'),
+                     ('whatif.index', 'What-if', 'split')] %}
+
+  {% set data = [] %}
+  {% if actor.can('import') %}{% set _ = data.append(('imports.start', 'Import', 'import')) %}{% endif %}
+  {% set _ = data.append(('exports.index', 'Export', 'export')) %}
+  {% set _ = data.append(('activity.index', 'Activity', 'clock')) %}
+  {% set _ = data.append(('settings.index', 'Settings', 'settings')) %}
+
+  {{ caller([('Overview', overview), ('Planning', planning), ('Data', data)]) }}
+{%- endmacro %}
+
+{% macro is_current(endpoint) -%}
+{{ 'aria-current=page' if request.blueprint == endpoint.split('.')[0] }}
+{%- endmacro %}
+
+{#- Demo personas switch profile; real accounts log out (a POST, so links can't trigger it) -#}
+{% macro account_action(actor, menu=False) -%}
+{% if actor.is_demo %}
+<a class="{{ '' if menu else 'icon-button' }}" href="{{ url_for('profiles.index') }}" {% if not menu %}title="Switch profile"{% endif %}>{{ ic.icon('swap') }}<span class="{{ '' if menu else 'sr-only' }}">Switch profile</span></a>
+{% else %}
+<form class="inline-form" method="post" action="{{ url_for('auth.logout') }}">{{ csrf_field() }}
+  <button class="{{ 'menu-button' if menu else 'icon-button' }}" type="submit" {% if not menu %}title="Log out"{% endif %}>{{ ic.icon('logout') }}<span class="{{ '' if menu else 'sr-only' }}">Log out</span></button>
+</form>
+{% endif %}
+{%- endmacro %}
+
+{% macro sidebar(actor) -%}
+<aside class="sidebar">
+  <a class="brand" href="{{ url_for('dashboard.index') }}">
+    <span class="brand-mark">{{ ic.icon('logo', 22, 2.2) }}</span>
+    <span class="brand-name">Budget Dashboard<span class="brand-sub">Personal finance</span></span>
+  </a>
+
+  <nav class="nav" aria-label="Main">
+    {% call(groups) nav_groups(actor) %}
+    {% for heading, items in groups if items %}
+    <div class="nav-group">
+      <p class="nav-heading" id="nav-{{ heading|lower }}">{{ heading }}</p>
+      <ul aria-labelledby="nav-{{ heading|lower }}">
+        {% for endpoint, label, icon in items %}
+        <li><a href="{{ url_for(endpoint) }}" {{ is_current(endpoint) }}>{{ ic.icon(icon) }}<span>{{ label }}</span></a></li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endfor %}
+    {% endcall %}
+  </nav>
+
+  <div class="sidebar-footer">
+    {% if actor.is_demo %}
+    <p class="demo-note"><strong>Demo with synthetic data.</strong> Not connected to any bank. Not financial advice.
+      <a href="{{ url_for('auth.signup') }}">Create your own account</a></p>
+    {% endif %}
+    <div class="user-card">
+      <span class="avatar" aria-hidden="true">{{ actor.name|initials }}</span>
+      <span class="user-meta"><span class="user-name">{{ actor.name }}</span>
+        <span class="user-role">{{ actor.email if actor.email else actor.role_label }}</span></span>
+      {{ account_action(actor) }}
+    </div>
+  </div>
+</aside>
+{%- endmacro %}
+
+{% macro bottom_nav(actor) -%}
+<nav class="bottomnav" aria-label="Main (compact)">
+  {% call(groups) nav_groups(actor) %}
+  {% set all = [] %}
+  {% for group in groups %}{% for item in group[1] %}{% set _ = all.append(item) %}{% endfor %}{% endfor %}
+  <ul>
+    {% for endpoint, label, icon in all[:4] %}
+    <li><a href="{{ url_for(endpoint) }}" {{ is_current(endpoint) }}>{{ ic.icon(icon, 22) }}<span>{{ label }}</span></a></li>
+    {% endfor %}
+    <li>
+      <details class="more">
+        <summary>{{ ic.icon('more', 22) }}<span>More</span></summary>
+        <ul class="more-menu">
+          {% for endpoint, label, icon in all[4:] %}
+          <li><a href="{{ url_for(endpoint) }}" {{ is_current(endpoint) }}>{{ ic.icon(icon) }}{{ label }}</a></li>
+          {% endfor %}
+          <li>{{ account_action(actor, menu=True) }}</li>
+        </ul>
+      </details>
+    </li>
+  </ul>
+  {% endcall %}
+</nav>
+{%- endmacro %}

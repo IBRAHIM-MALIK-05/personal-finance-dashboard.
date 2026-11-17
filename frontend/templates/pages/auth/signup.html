@@ -1,0 +1,38 @@
+{% extends "layouts/base.html" %}
+{% set layout = "solo" %}
+{% import "components/macros.html" as m with context %}
+{% import "components/icons.html" as ic %}
+{% block title %}Create an account{% endblock %}
+{% block solo %}
+<div class="auth">
+  <div class="welcome">
+    <span class="brand-mark">{{ ic.icon('logo', 28, 2.2) }}</span>
+    <h1>Create your account</h1>
+    <p>You get your own private budget. Only you can see it.</p>
+  </div>
+
+  {{ m.error_summary(errors) }}
+
+  <form class="card" method="post" action="{{ url_for('auth.signup') }}" novalidate>
+    {{ csrf_field() }}
+    <h2>About you</h2>
+    {{ m.field('name', 'Your name', values, errors, required=True, attrs='autocomplete="name" maxlength="80"') }}
+    {{ m.field('email', 'Email', values, errors, type='email', required=True, attrs='autocomplete="email" maxlength="254"') }}
+    <div class="row-fields">
+      {{ m.field('password', 'Password', {}, errors, type='password', hint='At least 8 characters.', required=True, attrs='autocomplete="new-password"') }}
+      {{ m.field('confirm_password', 'Repeat password', {}, errors, type='password', required=True, attrs='autocomplete="new-password"') }}
+    </div>
+
+    <h2 class="mt-2">Your money today</h2>
+    <p class="hint">How much is in your bank account or wallet? The dashboard starts from this. You can change it later in Settings.</p>
+    <div class="row-fields">
+      {{ m.field('opening_balance', 'Current balance (Rs)', values, errors, hint='For example 25,000. Leave empty for 0.', attrs='inputmode="decimal" autocomplete="off"') }}
+      {{ m.field('opening_date', 'On this date', values, errors, type='date', hint='Transactions you add from before this date are treated as already counted.', attrs='max="' ~ today.isoformat() ~ '"') }}
+    </div>
+
+    <button class="primary wide" type="submit">Create account</button>
+  </form>
+
+  <p class="center">Already have an account? <a href="{{ url_for('auth.login') }}">Log in</a></p>
+</div>
+{% endblock %}

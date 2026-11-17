@@ -1,0 +1,21 @@
+{% extends "layouts/base.html" %}
+{% import "components/macros.html" as m with context %}
+{% import "components/icons.html" as ic %}
+{% block title %}Export{% endblock %}
+{% block content %}
+{{ m.page_header('Export your data', 'CSV files open in Excel or Google Sheets. Text that could be misread as a spreadsheet formula is made safe.') }}
+<form class="narrow card" method="post" action="{{ url_for('exports.download') }}">
+  {{ csrf_field() }}
+  <fieldset><legend>What to export</legend>
+    <label class="choice"><input type="radio" name="kind" value="summary" {% if not actor.can('view_details') %}checked{% endif %}>
+      <span><strong>Monthly summary</strong>: income, spending and net for the last six months</span></label>
+    <label class="choice"><input type="radio" name="kind" value="transactions" {% if actor.can('view_details') %}checked{% else %}disabled{% endif %}>
+      <span><strong>All transactions</strong> with categories{% if not actor.can('view_details') %} <span class="muted">(not shared with you)</span>{% endif %}</span></label>
+  </fieldset>
+  <div class="row-fields">
+    <div class="field"><label for="es">From (optional)</label><input id="es" type="date" name="start"></div>
+    <div class="field"><label for="ee">To (optional)</label><input id="ee" type="date" name="end"></div>
+  </div>
+  <button class="primary" type="submit">{{ ic.icon('export', 18) }}Download CSV</button>
+</form>
+{% endblock %}

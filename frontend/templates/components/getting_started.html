@@ -1,0 +1,46 @@
+{#- Setup checklist for a new budget.  Each step turns green once it has data. -#}
+{% import "components/icons.html" as ic %}
+
+{% macro checklist(v) -%}
+{% set steps = [
+  (v.snap.txns|length > 0, 'Add your transactions',
+   'Type them in one by one, or import the CSV file your bank lets you download.',
+   [('Add a transaction', url_for('transactions.new'), 'primary'), ('Import a CSV file', url_for('imports.start'), 'secondary')]),
+  (v.snap.bills|length > 0, 'Add regular bills and income',
+   'Rent, electricity, salary... These make the forecast accurate.',
+   [('Add a recurring item', url_for('bills.new'), 'secondary')]),
+  (v.snap.budgets|length > 0, 'Set monthly budgets',
+   'Choose a spending limit for the categories you want to watch.',
+   [('Set a budget', url_for('budgets.index') ~ '#new-b', 'secondary')]),
+  (v.snap.goals|length > 0, 'Create a savings goal',
+   'Something you are saving for, with a target and a date.',
+   [('Create a goal', url_for('goals.index') ~ '#ng-h', 'secondary')]),
+] %}
+{% set done = steps|selectattr(0)|list|length %}
+<section class="card" aria-labelledby="gs-h">
+  <div class="card-header">
+    <div><h2 id="gs-h">{{ ic.icon('play', 18) }} Get started</h2>
+      <p>{{ done }} of {{ steps|length }} done. Each step makes the dashboard more useful.</p></div>
+  </div>
+  <ol class="checklist">
+    {% for is_done, title, hint, actions in steps %}
+    <li class="{{ 'done' if is_done }}">
+      <span class="step-num" aria-hidden="true">{% if is_done %}✓{% else %}{{ loop.index }}{% endif %}</span>
+      <div class="step-body">
+        <p class="step-title">{{ title }}{% if is_done %}<span class="sr-only"> (done)</span>{% endif %}</p>
+        <p class="step-hint">{{ hint }}</p>
+      </div>
+      {% if not is_done %}
+      <div class="actions">
+        {% for label, href, style in actions %}<a class="button {{ style }}" href="{{ href }}">{{ label }}</a>{% endfor %}
+      </div>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ol>
+</section>
+{%- endmacro %}
+
+{% macro is_complete(v) -%}
+{{ 'yes' if v.snap.txns and v.snap.bills and v.snap.budgets and v.snap.goals }}
+{%- endmacro %}

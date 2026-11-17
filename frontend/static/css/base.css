@@ -1,0 +1,67 @@
+/* Reset, typography and accessibility utilities. */
+
+*, *::before, *::after { box-sizing: border-box; }
+html { font-size: 100%; -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 0.95rem;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 { color: var(--text); line-height: 1.25; letter-spacing: -0.01em; }
+h1 { font-size: 1.6rem; font-weight: 700; margin: 0; }
+h2 { font-size: 1.05rem; font-weight: 650; margin: 0 0 .75rem; }
+h3 { font-size: .98rem; font-weight: 650; margin: 0 0 .4rem; }
+p { margin: 0 0 .75rem; }
+ul, ol { margin: 0 0 .75rem; padding-inline-start: 1.25rem; }
+hr { border: 0; border-top: 1px solid var(--border); margin: 1.25rem 0; }
+code { font-family: var(--font-mono); font-size: .88em; background: var(--surface-3); padding: .1em .35em; border-radius: 4px; }
+
+a { color: var(--accent); text-underline-offset: 3px; text-decoration-thickness: 1px; }
+a:hover { color: var(--accent-hover); text-decoration-thickness: 2px; }
+
+.muted { color: var(--muted); }
+.num { font-variant-numeric: tabular-nums; }
+.amt-in { color: var(--money-in); }
+.sr-only {
+  position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* Focus: always visible, 3px with offset (WCAG 2.4.7 / 2.4.11) */
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 6px; }
+main:focus { outline: none; }
+
+.skip-link {
+  position: absolute; inset-inline-start: 12px; top: -80px; z-index: 100;
+  background: var(--accent); color: var(--accent-text); padding: .65rem 1rem;
+  border-radius: var(--radius-sm); font-weight: 600; text-decoration: none;
+}
+.skip-link:focus { top: 12px; }
+
+.icon { flex: none; display: inline-block; vertical-align: middle; }
+
+/* Reduced motion: device setting unless the person chose "allow animation" */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="off"]) * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+:root[data-motion="on"] * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+
+/* Utilities (small, single-purpose; used instead of inline styles) */
+.narrow { max-width: 720px; }
+.center { justify-content: center; text-align: center; }
+.small { font-size: .85rem; }
+.nowrap { white-space: nowrap; }
+.text-over { color: var(--over); font-weight: 600; }
+.self-end { align-self: end; }
+.m-0 { margin: 0; }
+.mt-0 { margin-top: 0; }
+.mt-1 { margin-top: .75rem; }
+.mt-2 { margin-top: 1rem; }
+.mb-0 { margin-bottom: 0; }
+.mb-1 { margin-bottom: .5rem; }
+.mb-2 { margin-bottom: 1rem; }

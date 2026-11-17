@@ -1,0 +1,96 @@
+{% extends "layouts/base.html" %}
+{% import "components/macros.html" as m with context %}
+{% import "components/icons.html" as ic %}
+{% block title %}Budgets{% endblock %}
+{% block content %}
+{% call m.page_header('Budgets', v.as_of.strftime('%B %Y') ~ ' · monthly limits per category') %}
+  {% if actor.can('edit') and unbudgeted %}<a class="button" href="#new-b">{{ ic.icon('plus', 18) }}Add a budget</a>{% endif %}
+{% endcall %}
+
+<p class="mb-2 legend-strip">
+  <span><svg width="22" height="10" aria-hidden="true"><rect width="22" height="10" rx="2" fill="var(--actual)"/></svg> Spent so far (actual)</span>
+  <span><svg width="22" height="10" aria-hidden="true"><rect x="1" y="1" width="20" height="8" rx="2" fill="none" stroke="var(--forecast)" stroke-width="2" stroke-dasharray="4 2"/></svg> Forecast to month end</span>
+  <span><svg width="6" height="14" aria-hidden="true"><line x1="3" y1="0" x2="3" y2="14" stroke="var(--text)" stroke-width="2.5"/></svg> Your limit</span>
+</p>
+
+{% if not v.statuses %}
+  {{ m.empty('No budgets yet', 'A budget is a monthly limit for one spending category. Start with the category you spend most on.', icon='pie') }}
+{% endif %}
+
+<div class="cols-2">
+{% for s in v.statuses %}
+{% set cid = s.budget.category_id %}
+<section class="card budget-card" id="b-{{ cid }}" aria-labelledby="bh-{{ cid }}">
+  <div class="budget-head">
+    <h2 id="bh-{{ cid }}">{{ s.category_name }}</h2>
+    {{ m.status(s.status, s.status_text) }}
+  </div>
+  {{ bars[cid]|safe }}
+  <p class="meta-row">
+    <span>Spent <strong>{{ s.spent.display }}</strong> of {{ s.budget.monthly_limit|pkr }} ({{ s.pct_used }}%)</span>
+    <span>{% if s.remaining.value >= 0 %}<strong>{{ s.remaining.display }}</strong> left{% else %}Over by <strong>{{ (-s.remaining.value)|pkr }}</strong>{% endif %}</span>
+  </p>
+  <p class="mt-1 meta-row"><span>Forecast {{ s.projected.display }} {{ m.kind_badge('mixed') }}</span><span>{{ s.days_left }} days left</span></p>
+
+  {% if s.status == 'over' %}
+  <div class="mt-1">{% call m.flash('error', 'You’ve spent more than this budget. Check for a transaction in the wrong category, raise the limit if it was unrealistic, or plan to spend less here next month.') %}<a href="{{ url_for('transactions.index', category=cid, month=v.as_of.strftime('%Y-%m')) }}">See {{ s.category_name }} transactions</a>{% endcall %}</div>
+  {% elif s.status == 'heading_over' %}
+  <p class="small mt-1 mb-0 muted">At your usual pace this budget will be exceeded by about {{ (s.projected.value - s.budget.monthly_limit)|pkr }} by month end.</p>
+  {% endif %}
+
+  {{ m.explain(s.spent, title='How “spent” is worked out') }}
+  {{ m.explain(s.projected, title='How the month-end forecast is worked out') }}
+
+  {% if actor.can('edit') %}
+  <div class="budget-tools">
+    <form method="post" action="{{ url_for('budgets.save') }}">
+      {{ csrf_field() }}
+      <input type="hidden" name="category_id" value="{{ cid }}">
+      <input type="hidden" name="version" value="{{ s.budget.version }}">
+      <div class="row-fields">
+        <div class="field"><label for="lim-{{ cid }}">Monthly limit (Rs)</label>
+          <input id="lim-{{ cid }}" name="monthly_limit" type="text" inputmode="decimal"
+                 value="{{ (s.budget.monthly_limit // 100) }}" {% if edit_cat == cid %}aria-invalid="true"{% endif %}></div>
+        <div class="actions"><button class="secondary" type="submit">Update<span class="sr-only"> {{ s.category_name }} limit</span></button></div>
+      </div>
+    </form>
+    <form class="self-end" method="post" action="{{ url_for('budgets.remove', cat=cid) }}" data-confirm="Remove the {{ s.category_name }} budget? Transactions are not affected.">
+      {{ csrf_field() }}<button class="link danger-link" type="submit">Remove this budget<span class="sr-only">: {{ s.category_name }}</span></button>
+    </form>
+  </div>
+  {% endif %}
+
+  {% for n in notes.get('budget:' ~ cid, []) %}
+  <div class="note"><strong>Note from {{ n.display_name }}</strong> ({{ n.created_at.strftime('%d %b') }}): {{ n.text }}</div>
+  {% endfor %}
+  {% if actor.can('note') %}
+  <form class="mt-2" method="post" action="{{ url_for('coach.add_note') }}">
+    {{ csrf_field() }}<input type="hidden" name="target" value="budget:{{ cid }}">
+    <input type="hidden" name="next" value="{{ url_for('budgets.index') }}#b-{{ cid }}">
+    <div class="row-fields">
+      <div class="field"><label for="note-{{ cid }}">Add a coach note about {{ s.category_name }}</label>
+        <input id="note-{{ cid }}" name="text" type="text" maxlength="600"></div>
+      <div class="actions"><button class="secondary" type="submit">{{ ic.icon('note', 18) }}Add note</button></div>
+    </div>
+  </form>
+  {% endif %}
+</section>
+{% endfor %}
+</div>
+
+{% if actor.can('edit') and unbudgeted %}
+<section class="card" id="new-b" aria-labelledby="new-b-h">
+  <h2 id="new-b-h">Add a budget</h2>
+  <form method="post" action="{{ url_for('budgets.save') }}">
+    {{ csrf_field() }}
+    <div class="row-fields">
+      <div class="field"><label for="nb-cat">Category</label>
+        <select id="nb-cat" name="category_id">{% for c in unbudgeted %}<option value="{{ c }}">{{ c|cat }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="nb-lim">Monthly limit (Rs)</label>
+        <input id="nb-lim" name="monthly_limit" type="text" inputmode="decimal" required></div>
+      <div class="actions"><button class="primary" type="submit">Create budget</button></div>
+    </div>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

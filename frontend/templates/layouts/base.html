@@ -1,0 +1,73 @@
+<!doctype html>
+{% import "components/icons.html" as ic %}
+{% import "components/navigation.html" as nav with context %}
+<html lang="en"
+      data-theme="{{ prefs.theme if prefs else 'system' }}" data-motion="{{ prefs.reduced_motion if prefs else 'system' }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{% endblock %} · Budget Dashboard</title>
+  {% for sheet in ['tokens', 'base', 'layout', 'components', 'charts', 'pages'] %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/' ~ sheet ~ '.css') }}">
+  {% endfor %}
+  <script src="{{ url_for('static', filename='js/forms.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/chart-reader.js') }}" defer></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to main content</a>
+
+{% if actor and layout != "solo" %}
+<div class="app">
+  {{ nav.sidebar(actor) }}
+
+  <div class="main-col">
+    <header class="topbar">
+      <div class="topbar-context">
+        <a class="brand topbar-brand" href="{{ url_for('dashboard.index') }}" aria-label="Budget Dashboard">
+          <span class="brand-mark">{{ ic.icon('logo', 20, 2.2) }}</span></a>
+        <span class="workspace-name">{{ actor.workspace_name }}</span>
+        <span class="role-chip">{{ actor.role_label }}{% if actor.scope %} · shared: {{ actor.scope }}{% endif %}</span>
+      </div>
+      <form class="topbar-tools" method="post" action="{{ url_for('settings.save_preferences') }}" aria-label="Detail level">
+        {{ csrf_field() }}
+        <input type="hidden" name="next" value="{{ request.full_path }}">
+        <span class="lens-label" id="lens-label">Detail level</span>
+        <div class="segmented" role="group" aria-labelledby="lens-label">
+          {% for l in ['summary', 'standard', 'detailed'] %}
+          <button type="submit" name="lens" value="{{ l }}" aria-pressed="{{ 'true' if prefs.lens == l else 'false' }}">{{ l|capitalize }}</button>
+          {% endfor %}
+        </div>
+      </form>
+    </header>
+
+    {% if storage_off %}
+    <div class="banner banner-warn" role="alert">
+      {{ ic.icon('alert', 18) }}
+      <span><strong>Saving is switched off</strong> (storage-failure simulation). Your changes will not be saved.
+        <a href="{{ url_for('settings.index') }}#storage">Turn it off in Settings</a></span>
+    </div>
+    {% endif %}
+
+    <main id="main" tabindex="-1">
+      {% include "components/flashes.html" %}
+      {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer">
+      {% if actor.is_demo %}Demo with synthetic data · {% endif %}Not connected to any bank · never asks for bank passwords · not investment or financial advice ·
+      <a href="{{ url_for('help.index') }}">How the numbers work</a>
+    </footer>
+  </div>
+</div>
+{{ nav.bottom_nav(actor) }}
+
+{% else %}
+<main id="main" tabindex="-1" class="main-solo">
+  {% include "components/flashes.html" %}
+  {% block solo %}{% endblock %}
+  <p class="small center muted">
+    Not connected to any bank · never asks for bank passwords · not financial advice · storage: {{ db_description }}</p>
+</main>
+{% endif %}
+</body>
+</html>
