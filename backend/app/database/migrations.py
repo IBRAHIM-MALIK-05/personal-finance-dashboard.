@@ -5,18 +5,17 @@
    anything else needs a deliberate migration and is reported instead of guessed.
 2. ``BACKFILL``        one-off data fixes that run right after a column is added.
 3. ``install_admin_sql`` (MySQL only) creates the views and stored procedures in
-   ``sql/account_admin.sql`` that administrators use in MySQL Workbench.
+   ``database/account_admin.sql`` that administrators use in MySQL Workbench.
 """
 from __future__ import annotations
 
-from pathlib import Path
-
 from sqlalchemy import inspect, text
 
+from ..config import DATABASE_DIR
 from .connection import Database
 from .tables import metadata
 
-ADMIN_SQL = Path(__file__).resolve().parents[2] / "sql" / "account_admin.sql"
+ADMIN_SQL = DATABASE_DIR / "account_admin.sql"
 
 # Run once, right after the column (or table) is added to an existing database, in this order.
 BACKFILL = {

@@ -9,7 +9,7 @@ from .. import services as S
 from ..context import get_db, today
 from ..engine.categories import normalise_payee
 from ..engine.recurring import monthly_equivalent, next_due
-from ..view_models.overview import build_view
+from ..view_model import build_view
 
 bp = Blueprint("bills", __name__)
 

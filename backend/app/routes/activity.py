@@ -13,4 +13,4 @@ bp = Blueprint("activity", __name__)
 def index():
     with get_db().read() as conn:
         entries = S.audit_entries(conn, g.actor)
-    return render_template("pages/activity/index.html", entries=entries)
+    return render_template("pages/activity.html", entries=entries)

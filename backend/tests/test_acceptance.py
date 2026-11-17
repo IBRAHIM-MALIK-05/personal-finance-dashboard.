@@ -200,7 +200,7 @@ def test_import_failure_rolls_back_records_batch_and_journal(service_db, monkeyp
     def fail_audit(*args, **kwargs):
         raise RuntimeError("simulated failure after import writes")
 
-    monkeypatch.setattr(service.imports, "audit", fail_audit)  # where commit_draft looks it up
+    monkeypatch.setattr(service.csv_files, "audit", fail_audit)  # where commit_draft looks it up
     with pytest.raises(RuntimeError, match="simulated failure"):
         service.commit_draft(service_db, actor, draft_id, AS_OF)
     with service_db.read() as conn:

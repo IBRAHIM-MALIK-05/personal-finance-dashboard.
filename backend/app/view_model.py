@@ -8,13 +8,13 @@ from datetime import date, timedelta
 from flask import url_for
 from sqlalchemy.engine import Connection
 
-from .. import services as S
-from ..engine import budgets as B
-from ..engine import goals as G
-from ..engine.forecast import Forecast, build_forecast, variable_assumptions
-from ..engine.recurring import Occurrence, match_occurrences
-from ..engine.money import format_pkr
-from ..engine.dates import human
+from . import services as S
+from .engine import budgets as B
+from .engine import goals as G
+from .engine.forecast import Forecast, build_forecast, variable_assumptions
+from .engine.recurring import Occurrence, match_occurrences
+from .engine.money import format_pkr
+from .engine.dates import human
 
 
 @dataclass

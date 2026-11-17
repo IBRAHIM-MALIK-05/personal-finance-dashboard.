@@ -2,7 +2,7 @@
 
 Only portable constructs are used, so the same schema runs on MySQL 8 (the app)
 and SQLite (the tests).  ``scripts/export_schema.py`` writes the MySQL DDL to
-``sql/schema.sql`` for MySQL Workbench.  Money columns hold paisa (BIGINT).
+``database/schema.sql`` for MySQL Workbench.  Money columns hold paisa (BIGINT).
 """
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ profiles = Table(
     Column("created_at", DateTime, nullable=True),
     # Soft delete.  is_deleted: 0 = active, 1 = deleted by its owner.  The account can't log in,
     # but every record is kept; the email moves to deleted_email so the address can sign up again.
-    # Restore / permanent delete happen in the database: see sql/account_admin.sql.
+    # Restore / permanent delete happen in the database: see database/account_admin.sql.
     Column("is_deleted", Boolean, nullable=False, default=False, server_default=text("0")),
     Column("deleted_at", DateTime, nullable=True),
     Column("deleted_email", String(254), nullable=True),
@@ -51,7 +51,7 @@ workspaces = Table(
 
 # One row per soft-deleted account: the place to check which accounts are deleted.
 # Written in the same transaction that sets profiles.is_deleted = 1; the row is removed when the
-# account is restored or permanently purged (see sql/account_admin.sql).
+# account is restored or permanently purged (see database/account_admin.sql).
 deleted_accounts = Table(
     "deleted_accounts", metadata,
     Column("profile_id", String(32), ForeignKey("profiles.id", ondelete="CASCADE"), primary_key=True),

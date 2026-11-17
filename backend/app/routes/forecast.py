@@ -8,7 +8,7 @@ from flask import Blueprint, flash, g, render_template, request
 from ..charts.cashflow import cashflow_svg, chart_points_json
 from ..context import get_db, today
 from ..engine.money import AmountError, parse_amount
-from ..view_models.overview import build_view
+from ..view_model import build_view
 from .helpers import horizon
 
 bp = Blueprint("forecast", __name__)
@@ -44,6 +44,6 @@ def index():
     with get_db().read() as conn:
         v = build_view(conn, g.actor, as_of, days, overrides=overrides)
     chart = cashflow_svg(v.fc, chart_id="fc") if v.snap.txns else ""
-    return render_template("pages/forecast/index.html", v=v, chart=chart, horizon=days,
+    return render_template("pages/forecast.html", v=v, chart=chart, horizon=days,
                            chart_data=chart_points_json(v.fc) if chart else "{}",
                            as_of=as_of, overrides=overrides)

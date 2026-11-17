@@ -1,4 +1,4 @@
-"""Real user accounts: sign up, log in, and the budget that comes with an account.
+"""People: sign up, log in, soft delete, budget details, display preferences, coach sharing.
 
 Passwords are stored only as salted hashes (Werkzeug's ``generate_password_hash``).
 Each new account gets its own private, empty personal budget.
@@ -13,20 +13,23 @@ from sqlalchemy import func, insert, select, update
 from sqlalchemy.engine import Connection
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from ..database import Database
-from ..database import tables as T
+from ..database import Database, tables as T
 from ..engine.dates import DateParseError, parse_flexible
 from ..engine.money import AmountError, format_pkr, parse_amount
 from ..engine.validation import sanitize_text
-from .access import Actor, require
-from .activity import audit
-from .common import now
+from .core import Actor, Forbidden, ValidationFailed, audit, now, require
 from .demo_data import system_rules
-from .errors import Forbidden, ValidationFailed
+
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
 MIN_PASSWORD = 8
+
+
 MAX_PASSWORD = 128
+
+
 # Compared against when the email is unknown, so a wrong email takes as long as a wrong password.
 _DUMMY_HASH = generate_password_hash("not-a-real-password")
 
@@ -135,7 +138,7 @@ def delete_account(db: Database, actor: Actor, password: str, confirmation: str)
     records the account in the ``deleted_accounts`` table.
     The account can no longer log in, but every record stays in the database, and the email is
     moved to ``deleted_email`` so the address can sign up again.  Restoring or permanently
-    deleting is done in the database: see sql/account_admin.sql."""
+    deleting is done in the database: see database/account_admin.sql."""
     if actor.is_demo:
         raise Forbidden("Demo profiles can’t be deleted. Create your own account to try this.")
     errors: dict[str, str] = {}
@@ -166,3 +169,95 @@ def delete_account(db: Database, actor: Actor, password: str, confirmation: str)
 
 def count_accounts(conn: Connection) -> int:
     return conn.execute(select(func.count()).select_from(T.profiles).where(~T.profiles.c.is_demo)).scalar_one()
+
+
+DEFAULT_LENS = {"owner": "summary", "manager": "standard", "coach": "detailed"}
+
+
+def get_prefs(conn: Connection, profile_id: str, role: str) -> dict:
+    r = conn.execute(select(T.preferences).where(T.preferences.c.profile_id == profile_id)).first()
+    if r:
+        return dict(r._mapping)
+    return {"profile_id": profile_id, "lens": DEFAULT_LENS[role], "theme": "system",
+            "reduced_motion": "system", "horizon": 30}
+
+
+def set_prefs(db: Database, profile_id: str, role: str, **changes) -> dict:
+    allowed = {"lens": ("summary", "standard", "detailed"), "theme": ("system", "light", "dark", "contrast"),
+               "reduced_motion": ("system", "on", "off"), "horizon": (30, 60, 90)}
+    with db.engine.begin() as conn:  # preferences still save during the storage-failure demo
+        prefs = get_prefs(conn, profile_id, role)
+        for k, v in changes.items():
+            if k == "horizon":
+                v = int(v) if str(v).isdigit() else 30
+            if k in allowed and v in allowed[k]:
+                prefs[k] = v
+        exists = conn.execute(select(T.preferences.c.profile_id).where(T.preferences.c.profile_id == profile_id)).first()
+        values = {k: prefs[k] for k in ("lens", "theme", "reduced_motion", "horizon")}
+        if exists:
+            conn.execute(update(T.preferences).where(T.preferences.c.profile_id == profile_id).values(**values))
+        else:
+            conn.execute(insert(T.preferences).values(profile_id=profile_id, **values))
+    return prefs
+
+
+def get_meta(conn: Connection, key: str, default: str = "") -> str:
+    v = conn.execute(select(T.meta.c.value).where(T.meta.c.key == key)).scalar()
+    return default if v is None else v
+
+
+def set_meta(db: Database, key: str, value: str) -> None:
+    with db.engine.begin() as conn:  # bypasses the failure simulation on purpose
+        if conn.execute(select(T.meta.c.key).where(T.meta.c.key == key)).first():
+            conn.execute(update(T.meta).where(T.meta.c.key == key).values(value=value))
+        else:
+            conn.execute(insert(T.meta).values(key=key, value=value))
+
+
+def coach_clients(conn: Connection, coach_id: str) -> list[dict]:
+    """For the demo coach's home page: the demo households, and whether each is shared."""
+    rows = []
+    for ws in conn.execute(select(T.workspaces).where(T.workspaces.c.kind == "household", T.workspaces.c.is_demo)):
+        g = conn.execute(
+            select(T.sharing_grants)
+            .where(T.sharing_grants.c.workspace_id == ws.id, T.sharing_grants.c.coach_id == coach_id)
+            .order_by(T.sharing_grants.c.granted_at.desc())
+        ).first()
+        rows.append({"workspace": dict(ws._mapping), "grant": dict(g._mapping) if g else None})
+    return rows
+
+
+def current_grant(conn: Connection, workspace_id: int, coach_id: str = "coach_sara") -> dict | None:
+    r = conn.execute(select(T.sharing_grants).where(
+        T.sharing_grants.c.workspace_id == workspace_id, T.sharing_grants.c.coach_id == coach_id,
+        T.sharing_grants.c.revoked_at.is_(None))).first()
+    return dict(r._mapping) if r else None
+
+
+def set_sharing(db: Database, actor: Actor, scope: str | None, coach_id: str = "coach_sara") -> None:
+    """scope = 'summary' | 'full' | None (revoke).  Each change is a new grant
+    record, so the history of consent is kept."""
+    require(actor, "manage_sharing")
+    if scope not in (None, "summary", "full"):
+        raise ValidationFailed({"scope": "Choose what to share."})
+    with db.write() as conn:
+        conn.execute(update(T.sharing_grants).where(
+            T.sharing_grants.c.workspace_id == actor.workspace_id, T.sharing_grants.c.coach_id == coach_id,
+            T.sharing_grants.c.revoked_at.is_(None)).values(revoked_at=now()))
+        if scope:
+            conn.execute(insert(T.sharing_grants).values(workspace_id=actor.workspace_id, coach_id=coach_id,
+                                                         scope=scope, granted_by=actor.profile_id, granted_at=now()))
+        audit(conn, actor, "sharing.change", f"Coach access: {scope or 'revoked'}")
+
+
+def add_note(db: Database, actor: Actor, target: str, text: str) -> None:
+    require(actor, "note")
+    clean = sanitize_text(text, 600).value
+    if not clean:
+        raise ValidationFailed({"text": "Write a note first."})
+    with db.write() as conn:
+        conn.execute(insert(T.coach_notes).values(workspace_id=actor.workspace_id, coach_id=actor.profile_id,
+                                                  target=sanitize_text(target, 40).value or "general",
+                                                  text=clean, created_at=now()))
+        audit(conn, actor, "note.add", f"Coach note on {target}")
+

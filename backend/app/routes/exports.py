@@ -7,7 +7,7 @@ from flask import Blueprint, Response, flash, g, redirect, render_template, requ
 
 from .. import services as S
 from ..context import get_db, today
-from ..view_models.overview import build_view
+from ..view_model import build_view
 
 bp = Blueprint("exports", __name__)
 
@@ -22,7 +22,7 @@ def _date_range() -> tuple[date | None, date | None]:
 
 @bp.get("/export")
 def index():
-    return render_template("pages/exports/index.html")
+    return render_template("pages/exports.html")
 
 
 @bp.post("/export")

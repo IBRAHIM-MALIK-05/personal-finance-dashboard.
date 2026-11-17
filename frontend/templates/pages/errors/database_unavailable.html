@@ -8,7 +8,7 @@
   <ol>
     <li>Check the MySQL80 service is running (Windows Services, or MySQL Workbench → Server Status).</li>
     <li>Check <code>backend/.env</code> has the right <code>DATABASE_URL</code> (see <code>.env.example</code>).</li>
-    <li>If this is the first run, run <code>backend/sql/setup_mysql.sql</code> in MySQL Workbench to create the database and user.</li>
+    <li>If this is the first run, run <code>database/setup_mysql.sql</code> in MySQL Workbench to create the database and user.</li>
     <li>Restart the app.</li>
   </ol>
   <details><summary>Technical details</summary><p class="raw">{{ error }}</p></details>

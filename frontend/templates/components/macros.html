@@ -125,6 +125,17 @@
 </div>
 {%- endmacro %}
 
+{#- Messages from the last action ("Transaction added.", errors...) -#}
+{% macro flashes() -%}
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div class="flashes">
+  {% for kind, text in messages %}{{ flash(kind, text) }}{% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+{%- endmacro %}
+
 {#- Cash-flow chart with its legend, keyboard readout and caption -#}
 {% macro chart_block(svg, data, chart_id, caption, compare=False) -%}
 <figure class="chart-figure" data-chart="{{ chart_id }}" data-points="{{ data }}">

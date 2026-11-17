@@ -34,17 +34,16 @@ def load_dotenv(path: Path) -> None:
         os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
 
 
-def database_url(base_dir: Path) -> tuple[str, str]:
-    """Return (url, description).  MySQL from ``.env`` if configured, else a local
-    SQLite file - the UI shows which one is in use."""
-    load_dotenv(base_dir / ".env")
+def database_url(env_dir: Path, sqlite_dir: Path) -> tuple[str, str]:
+    """Return (url, description).  MySQL from ``env_dir/.env`` if configured, else a
+    local SQLite file in ``sqlite_dir`` - the UI shows which one is in use."""
+    load_dotenv(env_dir / ".env")
     url = os.environ.get("DATABASE_URL", "").strip()
     if url:
         kind = "MySQL" if url.startswith("mysql") else url.split(":", 1)[0]
         return url, kind
-    inst = base_dir / "instance"
-    inst.mkdir(exist_ok=True)
-    return f"sqlite:///{(inst / 'finance.db').as_posix()}", "SQLite (fallback: no DATABASE_URL in .env)"
+    sqlite_dir.mkdir(exist_ok=True)
+    return f"sqlite:///{(sqlite_dir / 'finance.db').as_posix()}", "SQLite (fallback: no DATABASE_URL in .env)"
 
 
 class Database:

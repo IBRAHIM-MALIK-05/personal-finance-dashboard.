@@ -6,7 +6,7 @@ from flask import Blueprint, flash, g, redirect, render_template, request, url_f
 from .. import services as S
 from ..context import get_db, today
 from ..engine.goals import status_sentence
-from ..view_models.overview import build_view
+from ..view_model import build_view
 from .helpers import first_error
 
 bp = Blueprint("goals", __name__)
@@ -15,7 +15,7 @@ bp = Blueprint("goals", __name__)
 def _render(errors: dict | None = None, values: dict | None = None, status: int = 200):
     with get_db().read() as conn:
         v = build_view(conn, g.actor, today(), 30)
-    return render_template("pages/goals/index.html", v=v, status_sentence=status_sentence,
+    return render_template("pages/goals.html", v=v, status_sentence=status_sentence,
                            errors=errors or {}, values=values or {}), status
 
 

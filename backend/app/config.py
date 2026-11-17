@@ -6,6 +6,7 @@ from pathlib import Path
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent      # backend/
 FRONTEND_DIR = BACKEND_DIR.parent / "frontend"              # frontend/
+DATABASE_DIR = BACKEND_DIR.parent / "database"              # database/: SQL scripts (+ local SQLite file)
 TEMPLATE_DIR = FRONTEND_DIR / "templates"
 STATIC_DIR = FRONTEND_DIR / "static"
 INSTANCE_DIR = BACKEND_DIR / "instance"                     # local runtime data (git-ignored)

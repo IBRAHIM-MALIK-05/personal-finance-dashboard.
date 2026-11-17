@@ -7,6 +7,7 @@ __pycache__/
 
 # Local runtime data, secrets and generated files
 backend/instance/
+database/*.db
 backend/.env
 backend/generated-data/
 

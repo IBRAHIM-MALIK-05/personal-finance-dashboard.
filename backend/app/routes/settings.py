@@ -25,7 +25,7 @@ def _render(errors: dict | None = None, values: dict | None = None, status: int 
     if values is None:
         values = {"name": budget["name"], "opening_balance": f"{budget['opening_balance'] / 100:g}",
                   "opening_date": budget["opening_date"].isoformat()}
-    return render_template("pages/settings/index.html", grant=grant, budget=budget,
+    return render_template("pages/settings.html", grant=grant, budget=budget,
                            errors=errors or {}, values=values, delete_errors=delete_errors or {}), status
 
 

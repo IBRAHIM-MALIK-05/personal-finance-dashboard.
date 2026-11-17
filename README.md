@@ -26,28 +26,34 @@ backend/                     Python (Flask)
 │  ├─ context.py             per request: database, today, CSRF, current profile
 │  ├─ errors.py              friendly error pages
 │  ├─ template_helpers.py    Jinja filters (money, dates, categories)
+│  ├─ view_model.py          runs the engine once and shares the results between pages
 │  ├─ routes/                one file per screen
-│  ├─ services/              database reads and writes, with permission checks
-│  ├─ view_models/           runs the engine once and shares results between pages
+│  ├─ services/              database reads and writes, with permission checks:
+│  │                         core, accounts, ledger, planning, csv_files, demo_data
 │  ├─ engine/                pure calculations, no database (forecast, budgets, importer, ...)
 │  ├─ charts/                SVG charts drawn by code
-│  └─ database/              tables.py (schema), connection.py, seed.py (synthetic data)
-├─ sql/                      setup_mysql.sql, schema.sql, account_admin.sql (MySQL Workbench)
+│  └─ database/              Python access to the database: tables, connection, migrations, seed
 ├─ scripts/                  generate_data.py, export_schema.py
 └─ tests/
 
 frontend/                    what the browser gets
 ├─ templates/
 │  ├─ layouts/base.html      page shell: sidebar, top bar, footer
-│  ├─ components/            macros, icons, navigation, flash messages
-│  └─ pages/<screen>/        one folder per screen, matching backend/app/routes/<screen>.py
+│  ├─ components/            macros, icons, navigation, getting-started checklist, import steps
+│  └─ pages/                 one template per screen (folders for screens with several:
+│                            auth, transactions, bills, imports, errors)
 └─ static/
-   ├─ css/                   tokens, base, layout, components, charts, pages
+   ├─ css/                   base (design tokens), layout, components (incl. charts), pages
    └─ js/                    chart-reader.js, forms.js
+
+database/                    MySQL scripts, opened in MySQL Workbench
+├─ setup_mysql.sql           create the databases and the app user (run once)
+├─ schema.sql                every table (generated from backend/app/database/tables.py)
+└─ account_admin.sql         soft-deleted accounts: views and restore / purge procedures
 ```
 
 How a request flows: `routes/` checks the request and calls `services/` (which check permissions and talk to the
-database) and `view_models/` (which run the `engine/` calculations). The route then renders a template from
+database) and `view_model.py` (which runs the `engine/` calculations). The route then renders a template from
 `frontend/templates/pages/`, with charts from `charts/`.
 
 ## Setup (Windows)
@@ -61,7 +67,7 @@ python -m venv .venv
 **Database.** Without any configuration the app uses a local SQLite file, and every page shows which storage is in
 use. To use MySQL:
 
-1. In MySQL Workbench, open `backend/sql/setup_mysql.sql`, replace `CHANGE_ME` with a password and run it.
+1. In MySQL Workbench, open `database/setup_mysql.sql`, replace `CHANGE_ME` with a password and run it.
 2. Copy `backend/.env.example` to `backend/.env` and put the same password in both URLs.
 
 ## Run
@@ -104,7 +110,7 @@ Settings → **Delete account** (password + the word `DELETE`) is a **soft delet
 
 The person is logged out and can't log in again; all their transactions, bills, budgets and goals stay. Restoring
 and permanently deleting are done **in the database**. The app installs these tools automatically on MySQL
-(defined in [`backend/sql/account_admin.sql`](backend/sql/account_admin.sql)); use them in MySQL Workbench:
+(defined in [`database/account_admin.sql`](database/account_admin.sql)); use them in MySQL Workbench:
 
 ```sql
 SELECT * FROM deleted_accounts;                   -- the table of soft-deleted accounts (their ids)
@@ -136,7 +142,7 @@ Run from `backend/`:
 
 ```powershell
 .venv\Scripts\python scripts\generate_data.py --out generated-data   # sample data files
-.venv\Scripts\python scripts\export_schema.py                        # rewrite sql/schema.sql
+.venv\Scripts\python scripts\export_schema.py                        # rewrite database/schema.sql
 ```
 
 ## Known limitations

@@ -10,7 +10,7 @@ Backend layout (``backend/app``):
     engine/              pure calculations (no database, no Flask)
     charts/              SVG charts drawn by code
     services/            permission-checked reads and writes
-    view_models/         combines services + engine for a page
+    view_model.py        combines services + engine for a page
     routes/              one Flask blueprint per screen
 
 The HTML templates, CSS and JavaScript live in ``frontend/``.
@@ -40,7 +40,7 @@ def create_app(overrides: dict | None = None) -> Flask:
     if "DATABASE_URL" in overrides:
         url, description = overrides["DATABASE_URL"], overrides.get("DB_DESCRIPTION", "test")
     else:
-        url, description = database_url(config.BACKEND_DIR)
+        url, description = database_url(config.BACKEND_DIR, config.DATABASE_DIR)
 
     app.config.update(
         SECRET_KEY=overrides.get("SECRET_KEY") or config.secret_key(),

@@ -16,7 +16,7 @@ def index():
         return redirect(url_for("dashboard.index"))
     with get_db().read() as conn:
         clients = S.coach_clients(conn, g.actor.profile_id)
-    return render_template("pages/coach/clients.html", clients=clients)
+    return render_template("pages/coach.html", clients=clients)
 
 
 @bp.post("/notes")

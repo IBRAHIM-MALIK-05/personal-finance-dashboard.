@@ -7,7 +7,7 @@ from .. import services as S
 from ..charts.bars import budget_bar_svg
 from ..context import get_db, today
 from ..engine.categories import BUDGETABLE_IDS, CATEGORIES
-from ..view_models.overview import build_view
+from ..view_model import build_view
 
 bp = Blueprint("budgets", __name__)
 
@@ -20,7 +20,7 @@ def index():
     notes: dict[str, list[dict]] = {}
     for n in v.snap.notes:
         notes.setdefault(n["target"], []).append(n)
-    return render_template("pages/budgets/index.html", v=v, notes=notes,
+    return render_template("pages/budgets.html", v=v, notes=notes,
                            bars={s.budget.category_id: budget_bar_svg(s, f"b-{s.budget.category_id}")
                                  for s in v.statuses},
                            unbudgeted=[c for c in BUDGETABLE_IDS if c not in used],

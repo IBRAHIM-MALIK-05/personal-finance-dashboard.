@@ -1,18 +1,61 @@
-"""Who is acting, and what they may do.
+"""Shared building blocks: errors, the acting person and their permissions, the audit log.
 
-Every service checks permission on the server through :func:`require`.  Real
-accounts log in with email and password (``services/accounts.py``); demo personas
-can be opened by anyone and only ever see the demo budgets.
+Every service checks permission on the server through :func:`require`.  Real accounts log in
+with email and password (``accounts.py``); demo personas can be opened by anyone and only
+ever see the demo budgets.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import insert, select, update
 from sqlalchemy.engine import Connection
 
 from ..database import tables as T
-from .errors import Forbidden
+
+
+class Forbidden(Exception):
+    """The current profile may not do this.  Shown as a 403 page."""
+
+
+class NotFound(Exception):
+    pass
+
+
+class ValidationFailed(Exception):
+    def __init__(self, errors: dict[str, str], values: dict | None = None):
+        super().__init__("; ".join(errors.values()))
+        self.errors = errors
+        self.values = values or {}
+
+
+class EditConflict(Exception):
+    """Someone else saved this record after you opened it (E3 hook)."""
+
+    def __init__(self, table: str, record_id: int, current: dict | None, attempted: dict):
+        super().__init__(f"{table} {record_id} changed since you opened it")
+        self.table, self.record_id, self.current, self.attempted = table, record_id, current, attempted
+
+
+class ImportBlocked(Exception):
+    def __init__(self, reasons: list[str]):
+        super().__init__(" ".join(reasons))
+        self.reasons = reasons
+
+
+def now() -> datetime:
+    return datetime.now().replace(microsecond=0)
+
+
+def versioned_update(conn: Connection, table, record_id: int, ws_id: int, version: int, values: dict, attempted: dict):
+    res = conn.execute(update(table).where(
+        table.c.id == record_id, table.c.workspace_id == ws_id, table.c.version == version,
+    ).values(**values, version=table.c.version + 1))
+    if res.rowcount == 0:
+        cur = conn.execute(select(table).where(table.c.id == record_id, table.c.workspace_id == ws_id)).first()
+        raise EditConflict(table.name, record_id, dict(cur._mapping) if cur else None, attempted)
+
 
 ROLE_LABELS = {
     "owner": "Personal budget owner",
@@ -99,4 +142,33 @@ def make_actor(conn: Connection, profile_id: str, workspace_id: int | None) -> A
     chosen = next((w for w in options if w["id"] == workspace_id), None) or options[0]
     return Actor(prof.id, prof.display_name, prof.role, chosen["id"], chosen["name"],
                  chosen["kind"], chosen["access"], chosen.get("scope"), bool(chosen["is_demo"]), prof.email)
+
+
+REDACTED = {
+    "transaction": "A transaction was added, edited or deleted (details not shared)",
+    "category": "A category was corrected (details not shared)",
+    "import": "Transactions were imported or an import was undone (details not shared)",
+    "goal": "A savings goal was updated (details not shared)",
+    "export": "Data was exported",
+}
+
+
+def audit(conn: Connection, actor: Actor, action: str, detail: str) -> None:
+    conn.execute(insert(T.audit_log).values(
+        workspace_id=actor.workspace_id, profile_id=actor.profile_id, at=now(),
+        action=action, detail=detail[:300],
+    ))
+
+
+def audit_entries(conn: Connection, actor: Actor, limit: int = 100) -> list[dict]:
+    q = (select(T.audit_log, T.profiles.c.display_name)
+         .join(T.profiles, T.profiles.c.id == T.audit_log.c.profile_id)
+         .where(T.audit_log.c.workspace_id == actor.workspace_id)
+         .order_by(T.audit_log.c.id.desc()).limit(limit))
+    rows = [dict(r._mapping) for r in conn.execute(q)]
+    if not actor.can("view_details"):
+        # Summary-only viewers see that something happened, never transaction details.
+        for r in rows:
+            r["detail"] = REDACTED.get(r["action"].split(".")[0], "Change recorded (details not shared)")
+    return rows
 

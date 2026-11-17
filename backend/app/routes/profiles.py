@@ -13,7 +13,7 @@ bp = Blueprint("profiles", __name__)
 def index():
     with get_db().read() as conn:
         profiles = S.list_demo_profiles(conn)
-    return render_template("pages/profiles/select.html", profiles=profiles, reason=request.args.get("reason"),
+    return render_template("pages/profiles.html", profiles=profiles, reason=request.args.get("reason"),
                            role_labels=S.ROLE_LABELS)
 
 

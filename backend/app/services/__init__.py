@@ -2,49 +2,38 @@
 
 Every public function takes an :class:`Actor` and checks permission on the
 server before touching data.  Writes go through ``Database.write()``, one atomic
-transaction each.  Routes import this package as ``S`` and call ``S.<function>``;
-the modules below are grouped by domain:
+transaction each.  Routes import this package as ``S`` and call ``S.<function>``.
 
-==============  ==============================================================
-accounts        sign up, log in, delete (soft), budget name and starting balance
-access          Actor, permissions, profiles and workspaces
-activity        audit log (who changed what, when)
-snapshot        one-shot load of a workspace for the calculation engine
-transactions    list / add / edit / delete / re-categorise
-bills           recurring bills and income, payment confirmation
-budgets         monthly limits
-goals           savings goals and contributions
-scenarios       saved what-if plans
-sharing         coach consent grants and coach notes
-preferences     display preferences and app settings
-imports         CSV import pipeline, undo and redo
-exports         CSV exports
-demo_data       create the database, reset the demo budgets, clear a budget
-==============  ==============================================================
+============  ===================================================================
+core          errors, the acting person and their permissions, the audit log
+accounts      sign up, log in, soft delete, budget details, preferences, sharing
+ledger        workspace snapshot for the engine, transactions, recurring bills
+planning      budgets, savings goals, saved what-if scenarios
+csv_files     CSV import pipeline (with undo / redo) and CSV exports
+demo_data     create the database, reset the demo budgets, clear a budget
+============  ===================================================================
 """
-from .access import ROLE_LABELS, Actor, accessible_workspaces, list_demo_profiles, make_actor, require
 from .accounts import (
-    authenticate, budget_details, count_accounts, create_account, delete_account, is_demo_profile,
+    DEFAULT_LENS, add_note, authenticate, budget_details, coach_clients, count_accounts, create_account,
+    current_grant, delete_account, get_meta, get_prefs, is_demo_profile, set_meta, set_prefs, set_sharing,
     update_budget_details,
 )
-from .activity import audit, audit_entries
-from .bills import add_bill, confirm_payment, delete_bill, get_bill, set_bill_active, update_bill
-from .budgets import delete_budget, set_budget
+from .core import (
+    ROLE_LABELS, Actor, EditConflict, Forbidden, ImportBlocked, NotFound, ValidationFailed,
+    accessible_workspaces, audit, audit_entries, list_demo_profiles, make_actor, require,
+)
+from .csv_files import (
+    UndoPreview, analyse_draft, commit_draft, create_draft, discard_draft, export_summary_csv,
+    export_transactions_csv, get_batch, get_draft, list_batches, log_export, redo_import, save_draft_settings,
+    undo_import, undo_preview,
+)
 from .demo_data import clear_workspace, reset_database, reset_demo_data, seed_database
-from .errors import EditConflict, Forbidden, ImportBlocked, NotFound, ValidationFailed
-from .exports import export_summary_csv, export_transactions_csv, log_export
-from .goals import add_goal, contribute, delete_goal
-from .imports import (
-    UndoPreview, analyse_draft, commit_draft, create_draft, discard_draft, get_batch, get_draft,
-    list_batches, redo_import, save_draft_settings, undo_import, undo_preview,
+from .ledger import (
+    Snapshot, TxnPage, add_bill, add_transaction, confirm_payment, delete_bill, delete_transaction, get_bill,
+    get_txn_row, kind_for, list_transactions, load_rules, load_snapshot, recategorise, set_bill_active,
+    similar_transactions, update_bill, update_transaction,
 )
-from .preferences import DEFAULT_LENS, get_meta, get_prefs, set_meta, set_prefs
-from .scenarios import (
-    adjustments_from_json, adjustments_to_json, delete_scenario, list_scenarios, save_scenario,
-)
-from .sharing import add_note, coach_clients, current_grant, set_sharing
-from .snapshot import Snapshot, load_rules, load_snapshot
-from .transactions import (
-    TxnPage, add_transaction, delete_transaction, get_txn_row, kind_for, list_transactions,
-    recategorise, similar_transactions, update_transaction,
+from .planning import (
+    add_goal, adjustments_from_json, adjustments_to_json, contribute, delete_budget, delete_goal,
+    delete_scenario, list_scenarios, save_scenario, set_budget,
 )

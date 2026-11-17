@@ -15,7 +15,7 @@ from ..engine.dates import DateParseError, parse_flexible
 from ..engine.models import Adjustment
 from ..engine.money import AmountError, parse_amount
 from ..engine.validation import sanitize_text
-from ..view_models.overview import build_view
+from ..view_model import build_view
 from .helpers import first_error, horizon
 
 bp = Blueprint("whatif", __name__)
@@ -63,7 +63,7 @@ def index():
     chart = cashflow_svg(v.fc, compare=alt, chart_id="wi", title="Forecast with and without your changes") \
         if v.snap.txns else ""
     bills = {b.id: b for b in v.snap.bills}
-    return render_template("pages/whatif/index.html", v=v, alt=alt, delta=delta, chart=chart, saved=saved,
+    return render_template("pages/whatif.html", v=v, alt=alt, delta=delta, chart=chart, saved=saved,
                            adjs=[(i, SC.describe(a, bills)) for i, a in enumerate(adjs)],
                            draft=_draft(), horizon=days, categories=list(BUDGETABLE_IDS),
                            chart_data=chart_points_json(v.fc, alt) if chart else "{}")

@@ -1,4 +1,8 @@
+{% extends "layouts/base.html" %}
 {% import "components/macros.html" as m with context %}
+{% block title %}How the numbers work{% endblock %}
+{# The help page works signed in (inside the app) and signed out (full-screen). #}
+{% macro body() %}
 {{ m.page_header('How the numbers work', 'What every label means, how the forecast is built, and the limits of this prototype.') }}
 <div class="cols-2">
   <section class="card"><h2>Actual, forecast and plan</h2>
@@ -26,3 +30,6 @@
     <li>This is a learning prototype. It does not give financial or investment advice.</li>
   </ul>
 </section>
+{% endmacro %}
+{% block content %}{{ body() }}{% endblock %}
+{% block solo %}{{ body() }}{% endblock %}

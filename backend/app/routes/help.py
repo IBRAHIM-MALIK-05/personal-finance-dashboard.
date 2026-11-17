@@ -8,4 +8,4 @@ bp = Blueprint("help", __name__)
 
 @bp.get("/help")
 def index():
-    return render_template("pages/help/index.html")
+    return render_template("pages/help.html")

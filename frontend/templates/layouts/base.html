@@ -1,5 +1,6 @@
 <!doctype html>
 {% import "components/icons.html" as ic %}
+{% import "components/macros.html" as ui with context %}
 {% import "components/navigation.html" as nav with context %}
 <html lang="en"
       data-theme="{{ prefs.theme if prefs else 'system' }}" data-motion="{{ prefs.reduced_motion if prefs else 'system' }}">
@@ -7,7 +8,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{% endblock %} · Budget Dashboard</title>
-  {% for sheet in ['tokens', 'base', 'layout', 'components', 'charts', 'pages'] %}
+  {% for sheet in ['base', 'layout', 'components', 'pages'] %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/' ~ sheet ~ '.css') }}">
   {% endfor %}
   <script src="{{ url_for('static', filename='js/forms.js') }}" defer></script>
@@ -49,7 +50,7 @@
     {% endif %}
 
     <main id="main" tabindex="-1">
-      {% include "components/flashes.html" %}
+      {{ ui.flashes() }}
       {% block content %}{% endblock %}
     </main>
 
@@ -63,7 +64,7 @@
 
 {% else %}
 <main id="main" tabindex="-1" class="main-solo">
-  {% include "components/flashes.html" %}
+  {{ ui.flashes() }}
   {% block solo %}{% endblock %}
   <p class="small center muted">
     Not connected to any bank · never asks for bank passwords · not financial advice · storage: {{ db_description }}</p>

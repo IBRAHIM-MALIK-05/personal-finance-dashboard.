@@ -1,8 +1,0 @@
-{% import "components/macros.html" as m with context %}
-{% with messages = get_flashed_messages(with_categories=true) %}
-{% if messages %}
-<div class="flashes">
-  {% for kind, text in messages %}{{ m.flash(kind, text) }}{% endfor %}
-</div>
-{% endif %}
-{% endwith %}

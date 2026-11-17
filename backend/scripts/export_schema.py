@@ -1,4 +1,4 @@
-"""Write the MySQL DDL for every table to sql/schema.sql (open it in MySQL Workbench).
+"""Write the MySQL DDL for every table to database/schema.sql (open it in MySQL Workbench).
 
     python scripts/export_schema.py
 """
@@ -23,6 +23,6 @@ for table in metadata.sorted_tables:
     parts.append(ddl + " ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;\n")
     for idx in table.indexes:
         parts.append(str(CreateIndex(idx).compile(dialect=dialect)).strip() + ";\n")
-out = ROOT / "sql" / "schema.sql"
+out = ROOT.parent / "database" / "schema.sql"
 out.write_text("\n".join(parts), encoding="utf-8")
 print(f"Wrote {out}")
