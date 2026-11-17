@@ -1,15 +1,13 @@
-# Python / tools
+# Python caches and virtual environments
 __pycache__/
 *.pyc
 .pytest_cache/
 .venv/
-.codex/
 
-# Local runtime data, secrets and generated files
-backend/instance/
-database/*.db
+# Private settings, local database and generated files
 backend/.env
 backend/generated-data/
+database/*.db
 
 # Course material is kept outside this repository
 *.docx

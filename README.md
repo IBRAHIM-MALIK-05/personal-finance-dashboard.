@@ -58,10 +58,11 @@ database) and `view_model.py` (which runs the `engine/` calculations). The route
 
 ## Setup (Windows)
 
+Needs Python 3.12 or newer. Install the libraries once:
+
 ```powershell
 cd backend
-python -m venv .venv
-.venv\Scripts\pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
 **Database.** Without any configuration the app uses a local SQLite file, and every page shows which storage is in
@@ -70,16 +71,17 @@ use. To use MySQL:
 1. In MySQL Workbench, open `database/setup_mysql.sql`, replace `CHANGE_ME` with a password and run it.
 2. Copy `backend/.env.example` to `backend/.env` and put the same password in both URLs.
 
+`backend/.env` holds your private settings (database passwords and the key that signs log-in sessions). It is
+git-ignored; the session key is created there automatically on the first run.
+
 ## Run
 
 ```powershell
 cd backend
-.venv\Scripts\python run.py                 # open http://127.0.0.1:5000
-.venv\Scripts\python run.py --reset-demo    # put the demo budgets back to the start (accounts are kept)
-.venv\Scripts\python run.py --reset         # rebuild ALL tables (refuses if real accounts exist, unless --yes)
+python run.py                 # open http://127.0.0.1:5000
+python run.py --reset-demo    # put the demo budgets back to the start (accounts are kept)
+python run.py --reset         # rebuild ALL tables (refuses if real accounts exist, unless --yes)
 ```
-
-In VS Code, use the **Run the app** launch configuration.
 
 The first page is **Log in**. New people click **Create an account**. To look around without an account, click
 **Try the demo** and choose a profile:
@@ -129,20 +131,24 @@ email has been reused.
 
 ```powershell
 cd backend
-.venv\Scripts\python -m pytest
+python -B -m pytest -p no:cacheprovider
 ```
 
-* Engine, import, validation and chart tests need no database; service and web tests use throw-away SQLite files.
-* `tests/test_mysql_integration.py` runs only when `TEST_DATABASE_URL` is set in `backend/.env` (otherwise skipped).
-* `tests/test_acceptance.py` holds acceptance tests written from the specification.
+(`-B` and `-p no:cacheprovider` stop Python and pytest leaving cache folders in the project.)
+
+| File | Covers |
+|---|---|
+| `tests/test_engine.py` | calculations with no database: money, dates, forecast, budgets, goals, what-if, CSV analysis, charts |
+| `tests/test_app.py` | the app end to end on a throw-away SQLite file: pages, roles, accounts, soft delete, acceptance cases |
+| `tests/test_mysql.py` | the critical paths on MySQL; runs only when `TEST_DATABASE_URL` is set in `backend/.env` |
 
 ## Scripts
 
 Run from `backend/`:
 
 ```powershell
-.venv\Scripts\python scripts\generate_data.py --out generated-data   # sample data files
-.venv\Scripts\python scripts\export_schema.py                        # rewrite database/schema.sql
+python scripts\generate_data.py --out generated-data   # sample data files
+python scripts\export_schema.py                        # rewrite database/schema.sql
 ```
 
 ## Known limitations

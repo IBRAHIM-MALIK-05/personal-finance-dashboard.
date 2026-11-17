@@ -34,7 +34,7 @@ from .template_helpers import register_template_helpers
 def create_app(overrides: dict | None = None) -> Flask:
     """Build the app.  ``overrides`` is used by the tests (database URL, fixed date...)."""
     overrides = overrides or {}
-    app = Flask(__name__, instance_path=str(config.INSTANCE_DIR),
+    app = Flask(__name__,
                 template_folder=str(config.TEMPLATE_DIR), static_folder=str(config.STATIC_DIR))
 
     if "DATABASE_URL" in overrides:

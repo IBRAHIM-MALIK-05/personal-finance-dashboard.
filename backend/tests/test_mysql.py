@@ -7,21 +7,31 @@ Runs only when TEST_DATABASE_URL is set (for example in backend/.env):
 WARNING: the test schema is dropped and recreated on every run. Never point
 this at the real hci_finance schema.
 """
-import os
 from pathlib import Path
+import os
 
-import pytest
 from sqlalchemy import func, select, text
+import pytest
 
-from app.database import tables as T
 from app import services as S
 from app.database import Database, load_dotenv
+from app.database import tables as T
 from app.engine import importer as I
 
-from .conftest import AS_OF
+from conftest import AS_OF
+
+
+# ================================================================================================
+# The same critical checks against a real MySQL test schema.
+# ================================================================================================
+
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+
+
 URL = os.environ.get("TEST_DATABASE_URL", "")
+
+
 pytestmark = pytest.mark.skipif(not URL.startswith("mysql"), reason="TEST_DATABASE_URL (MySQL) not configured")
 
 
@@ -107,8 +117,6 @@ def test_soft_delete_keeps_the_email_on_mysql(mdb):
         row = c.execute(select(T.profiles).where(T.profiles.c.id == pid)).first()
     assert row.email is None and row.deleted_email == "my@example.com" and row.deleted_at is not None
 
-
-# ------------------------------------------- soft delete: views and stored procedures --
 
 def _soft_deleted_account(d, email, pw="correct horse 42"):
     pid = S.create_account(d, {"name": "Gone User", "email": email, "password": pw, "confirm_password": pw}, AS_OF)

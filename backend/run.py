@@ -5,11 +5,14 @@
     python run.py --reset          # rebuild ALL tables: deletes every account (asks for --yes if any exist)
 """
 import sys
-from datetime import date
 
-from sqlalchemy.exc import SQLAlchemyError
+sys.dont_write_bytecode = True  # no __pycache__ folders in the project
 
-from app import create_app, services
+from datetime import date  # noqa: E402
+
+from sqlalchemy.exc import SQLAlchemyError  # noqa: E402
+
+from app import create_app, services  # noqa: E402
 
 application = create_app()
 

@@ -1,8 +1,12 @@
+"""Shared test setup: a fresh app on a throw-away SQLite file for every test."""
 import sys
-from datetime import date
-from pathlib import Path
 
-import pytest
+sys.dont_write_bytecode = True  # no __pycache__ folders in the project
+
+from datetime import date  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+import pytest  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
