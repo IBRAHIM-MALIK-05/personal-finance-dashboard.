@@ -1,5 +1,6 @@
-Flask==3.1.2
-SQLAlchemy==2.0.44
-PyMySQL==1.1.2
-cryptography==50.0.2
-pytest==8.4.2
+# Install with:  python -m pip install -r requirements.txt   (Python 3.12 or newer)
+Flask==3.1.2          # web app (also installs Werkzeug, Jinja2, MarkupSafe)
+SQLAlchemy==2.0.44    # database access
+PyMySQL==1.1.2        # MySQL driver, used through DATABASE_URL=mysql+pymysql://...
+cryptography==50.0.2  # lets PyMySQL log in to MySQL 8 (caching_sha2_password)
+pytest==8.4.2         # tests
