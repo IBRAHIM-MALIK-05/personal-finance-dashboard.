@@ -123,7 +123,7 @@ def _call(d, sql):
         return c.exec_driver_sql(sql).fetchall()
 
 
-ADMIN_OBJECTS = ("VIEW accounts_overview", "VIEW deleted_accounts", "VIEW deleted_account_transactions",
+ADMIN_OBJECTS = ("VIEW accounts_overview", "VIEW deleted_account_transactions",
                  "PROCEDURE restore_account", "PROCEDURE purge_account", "PROCEDURE purge_account_rows",
                  "PROCEDURE purge_deleted_accounts")
 
@@ -138,19 +138,44 @@ def admin_db(mdb):
             c.exec_driver_sql(f"DROP {obj.split()[0]} IF EXISTS {obj.split()[1]}")
 
 
-def test_deleted_accounts_view_lists_soft_deleted_accounts(admin_db):
+def test_deleted_accounts_table_lists_soft_deleted_accounts(admin_db):
     pid = _soft_deleted_account(admin_db, "view@example.com")
     with admin_db.read() as c:
+        kind = c.execute(text("SELECT TABLE_TYPE FROM information_schema.TABLES "
+                              "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'deleted_accounts'")).scalar()
         row = c.execute(text("SELECT * FROM deleted_accounts WHERE profile_id = :p"), {"p": pid}).mappings().first()
         status = c.execute(text("SELECT status FROM accounts_overview WHERE profile_id = :p"), {"p": pid}).scalar()
         kept = c.execute(text("SELECT COUNT(*) FROM deleted_account_transactions WHERE profile_id = :p"),
                          {"p": pid}).scalar()
-    assert row["email"] == "view@example.com" and row["transactions"] == 1 and status == "deleted" and kept == 1
+    assert kind == "BASE TABLE" and row["email"] == "view@example.com" and row["deleted_at"] is not None
+    assert status == "deleted" and kept == 1
+
+
+def _listed(d, pid):
+    with d.read() as c:
+        return c.execute(text("SELECT COUNT(*) FROM deleted_accounts WHERE profile_id = :p"), {"p": pid}).scalar()
+
+
+def test_old_deleted_accounts_view_becomes_a_table(mdb):
+    """A database from the previous version had a VIEW called deleted_accounts; start-up replaces it."""
+    from app.database.migrations import migrate
+    pid = _soft_deleted_account(mdb, "legacy@example.com")
+    with mdb.engine.begin() as c:
+        c.exec_driver_sql("DROP TABLE deleted_accounts")
+        c.exec_driver_sql("CREATE VIEW deleted_accounts AS SELECT id AS profile_id FROM profiles WHERE is_deleted = 1")
+    changes = migrate(mdb)
+    assert "added table deleted_accounts" in changes and _listed(mdb, pid) == 1
+    with mdb.engine.begin() as c:
+        for obj in ("VIEW accounts_overview", "VIEW deleted_account_transactions", "PROCEDURE restore_account",
+                    "PROCEDURE purge_account", "PROCEDURE purge_account_rows", "PROCEDURE purge_deleted_accounts"):
+            c.exec_driver_sql(f"DROP {obj.split()[0]} IF EXISTS {obj.split()[1]}")
 
 
 def test_restore_account_procedure(admin_db):
     pid = _soft_deleted_account(admin_db, "back@example.com")
+    assert _listed(admin_db, pid) == 1
     assert "Restored" in _call(admin_db, f"CALL restore_account('{pid}')")[0][0]
+    assert _listed(admin_db, pid) == 0  # no longer listed as deleted
     actor = _actor(admin_db, pid)
     assert actor is not None and actor.email == "back@example.com"
     with pytest.raises(Exception, match="No soft-deleted account"):
@@ -178,9 +203,10 @@ def test_purge_account_removes_everything_and_only_that(admin_db):
             "SELECT COUNT(*) FROM profiles WHERE id = :p", "SELECT COUNT(*) FROM workspaces WHERE id = :w",
             "SELECT COUNT(*) FROM transactions WHERE workspace_id = :w", "SELECT COUNT(*) FROM rules WHERE workspace_id = :w",
             "SELECT COUNT(*) FROM memberships WHERE profile_id = :p",
+            "SELECT COUNT(*) FROM deleted_accounts WHERE profile_id = :p",
             "SELECT COUNT(*) FROM audit_log WHERE profile_id = :p OR workspace_id = :w")]
         demo_after = c.execute(text("SELECT COUNT(*) FROM transactions")).scalar()
-    assert left == [0, 0, 0, 0, 0, 0] and demo_after == demo_before
+    assert left == [0, 0, 0, 0, 0, 0, 0] and demo_after == demo_before
 
 
 def test_purge_deleted_accounts_respects_the_age_limit(admin_db):
@@ -188,6 +214,8 @@ def test_purge_deleted_accounts_respects_the_age_limit(admin_db):
     new = _soft_deleted_account(admin_db, "new@example.com")
     with admin_db.engine.begin() as c:
         c.execute(text("UPDATE profiles SET deleted_at = NOW() - INTERVAL 40 DAY WHERE id = :p"), {"p": old})
+        c.execute(text("UPDATE deleted_accounts SET deleted_at = NOW() - INTERVAL 40 DAY WHERE profile_id = :p"),
+                  {"p": old})
     assert "1 soft-deleted" in _call(admin_db, "CALL purge_deleted_accounts(30)")[0][0]
     with admin_db.read() as c:
         ids = {r[0] for r in c.execute(text("SELECT id FROM profiles WHERE NOT is_demo"))}

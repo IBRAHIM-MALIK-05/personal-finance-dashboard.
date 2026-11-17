@@ -4,18 +4,21 @@
 --
 --  How soft delete works
 --    When a person deletes their account in the app, nothing is erased:
---      profiles.is_deleted   0 = active, 1 = deleted        (workspaces.is_deleted likewise for the budget)
---      profiles.deleted_at   when it happened
---      profiles.deleted_email  their email, moved aside so the address can sign up again
+--      TABLE deleted_accounts   one row per soft-deleted account: profile_id, workspace_id, name,
+--                               email, deleted_at.  This is where to check the deleted ids.
+--      profiles.is_deleted      0 = active, 1 = deleted   (workspaces.is_deleted likewise for the budget)
+--      profiles.deleted_at      when it happened
+--      profiles.deleted_email   their email, moved aside so the address can sign up again
 --    Every transaction, bill, budget and goal stays in the database.
+--    restore_account() and purge_account() remove the row from deleted_accounts.
 --
 --  The app installs everything below automatically when it starts on MySQL, so you can use it
 --  straight away in MySQL Workbench (schema hci_finance -> Views / Stored Procedures).
 --
 --  Everyday use (run in Workbench with hci_finance as the default schema)
 --
+--    SELECT * FROM deleted_accounts;                      -- TABLE: every soft-deleted account (its ids)
 --    SELECT * FROM accounts_overview;                     -- every real account, active or deleted
---    SELECT * FROM deleted_accounts;                      -- only soft-deleted ones, with how much data each has
 --    SELECT * FROM deleted_account_transactions
 --      WHERE profile_id = 'u_...';                        -- the kept records of one deleted account
 --
@@ -47,23 +50,6 @@ FROM profiles p
 LEFT JOIN memberships m ON m.profile_id = p.id
 LEFT JOIN workspaces  w ON w.id = m.workspace_id
 WHERE p.is_demo = 0;
-
-CREATE OR REPLACE VIEW deleted_accounts AS
-SELECT p.id                                   AS profile_id,
-       p.display_name                         AS name,
-       p.deleted_email                        AS email,
-       p.deleted_at,
-       DATEDIFF(CURRENT_DATE, p.deleted_at)   AS days_since_deleted,
-       w.id                                   AS workspace_id,
-       w.name                                 AS budget,
-       (SELECT COUNT(*) FROM transactions    x WHERE x.workspace_id = w.id) AS transactions,
-       (SELECT COUNT(*) FROM recurring_bills x WHERE x.workspace_id = w.id) AS recurring_items,
-       (SELECT COUNT(*) FROM budgets         x WHERE x.workspace_id = w.id) AS budget_limits,
-       (SELECT COUNT(*) FROM goals           x WHERE x.workspace_id = w.id) AS savings_goals
-FROM profiles p
-LEFT JOIN memberships m ON m.profile_id = p.id
-LEFT JOIN workspaces  w ON w.id = m.workspace_id
-WHERE p.is_deleted = 1 AND p.is_demo = 0;
 
 CREATE OR REPLACE VIEW deleted_account_transactions AS
 SELECT p.id              AS profile_id,
@@ -109,6 +95,7 @@ BEGIN
   UPDATE workspaces
      SET is_deleted = 0, deleted_at = NULL
    WHERE is_demo = 0 AND id IN (SELECT workspace_id FROM memberships WHERE profile_id = p_profile_id);
+  DELETE FROM deleted_accounts WHERE profile_id = p_profile_id;
   COMMIT;
   SELECT CONCAT('Restored account ', p_profile_id, ' (', COALESCE(v_email, 'no email'), ').') AS result;
 END $$
@@ -125,7 +112,7 @@ BEGIN
     FROM profiles WHERE id = p_profile_id AND is_deleted = 1 AND is_demo = 0 FOR UPDATE;
   IF v_found = 0 THEN
     SIGNAL SQLSTATE '45000'
-      SET MESSAGE_TEXT = 'Only soft-deleted accounts can be purged. Check the profile_id in deleted_accounts.';
+      SET MESSAGE_TEXT = 'Only soft-deleted accounts can be purged. Check the profile_id in the deleted_accounts table.';
   END IF;
 
   -- Budgets that belong to this account alone (never a demo budget or one shared with someone else).
@@ -140,6 +127,7 @@ BEGIN
   -- The audit log has no foreign keys, so it is cleared explicitly.  Deleting a workspace removes its
   -- transactions, bills, budgets, goals, imports, scenarios and memberships (ON DELETE CASCADE);
   -- deleting the profile removes its preferences.
+  DELETE FROM deleted_accounts WHERE profile_id = p_profile_id;
   DELETE FROM audit_log  WHERE profile_id = p_profile_id OR workspace_id IN (SELECT id FROM purge_ws);
   DELETE FROM workspaces WHERE id IN (SELECT id FROM purge_ws);
   DELETE FROM profiles   WHERE id = p_profile_id;
@@ -173,8 +161,9 @@ BEGIN
   DROP TEMPORARY TABLE IF EXISTS purge_ids;
   CREATE TEMPORARY TABLE purge_ids (id VARCHAR(32) PRIMARY KEY);
   INSERT INTO purge_ids
-  SELECT id FROM profiles
-   WHERE is_deleted = 1 AND is_demo = 0 AND deleted_at <= NOW() - INTERVAL p_older_than_days DAY;
+  SELECT d.profile_id FROM deleted_accounts d
+    JOIN profiles p ON p.id = d.profile_id AND p.is_deleted = 1 AND p.is_demo = 0
+   WHERE d.deleted_at <= NOW() - INTERVAL p_older_than_days DAY;
 
   OPEN cur;
   purge_loop: LOOP

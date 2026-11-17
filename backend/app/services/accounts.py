@@ -131,7 +131,8 @@ def update_budget_details(db: Database, actor: Actor, form: dict, today: date) -
 
 
 def delete_account(db: Database, actor: Actor, password: str, confirmation: str) -> None:
-    """Soft delete: sets ``is_deleted = 1`` (and ``deleted_at``) on the profile and its budget.
+    """Soft delete: sets ``is_deleted = 1`` (and ``deleted_at``) on the profile and its budget and
+    records the account in the ``deleted_accounts`` table.
     The account can no longer log in, but every record stays in the database, and the email is
     moved to ``deleted_email`` so the address can sign up again.  Restoring or permanently
     deleting is done in the database: see sql/account_admin.sql."""
@@ -157,6 +158,9 @@ def delete_account(db: Database, actor: Actor, password: str, confirmation: str)
         owned = select(T.memberships.c.workspace_id).where(T.memberships.c.profile_id == actor.profile_id)
         conn.execute(update(T.workspaces).where(T.workspaces.c.id.in_(owned), ~T.workspaces.c.is_demo)
                      .values(is_deleted=True, deleted_at=ts))
+        conn.execute(insert(T.deleted_accounts).values(
+            profile_id=actor.profile_id, workspace_id=actor.workspace_id, name=actor.name, email=email,
+            deleted_at=ts))
         audit(conn, actor, "account.delete", "Account deleted by its owner (data kept)")
 
 

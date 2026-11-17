@@ -151,6 +151,9 @@ def test_delete_account_is_soft(client, app, db):
         payees = [r.payee for r in conn.execute(select(T.transactions.c.payee).where(T.transactions.c.workspace_id == ws.id))]
     assert p.is_deleted and p.deleted_at is not None and p.email is None and p.password_hash  # kept, login removed
     assert ws.is_deleted and ws.deleted_at is not None and "Kept For Records" in payees  # data kept
+    with db.read() as conn:
+        listed = conn.execute(select(T.deleted_accounts).where(T.deleted_accounts.c.profile_id == p.id)).first()
+    assert listed.email == "zara@example.com" and listed.workspace_id == ws.id and listed.name == "Zara Ahmed"
     r = client.post("/login", data={"email": "zara@example.com", "password": PASSWORD})
     assert r.status_code == 401  # can't log in any more
 
@@ -202,7 +205,8 @@ def test_upgrade_adds_new_columns_without_losing_data(tmp_path):
     from app.database.migrations import upgrade_schema
     db = Database(_old_database(tmp_path))
     added = upgrade_schema(db)
-    assert {"profiles.is_deleted", "profiles.deleted_at", "profiles.deleted_email"} <= set(added)
+    assert {"table deleted_accounts", "profiles.is_deleted", "profiles.deleted_at",
+            "profiles.deleted_email"} <= set(added)
     assert {"is_deleted", "deleted_at", "deleted_email"} <= {c["name"] for c in inspect(db.engine).get_columns("profiles")}
     with db.read() as c:
         row = c.execute(text("SELECT display_name, is_deleted FROM profiles")).first()
@@ -228,7 +232,9 @@ def test_upgrade_backfills_is_deleted_for_older_soft_deletes(tmp_path):
     upgrade_schema(db)
     with db.read() as c:
         flags = dict(c.execute(text("SELECT id, is_deleted FROM profiles")).all())
+        listed = c.execute(text("SELECT profile_id, email FROM deleted_accounts")).all()
     assert flags == {"u_1": 0, "u_2": 1}
+    assert [tuple(r) for r in listed] == [("u_2", "gone@example.com")]  # recorded in the new table
 
 
 def test_admin_sql_script_splits_into_whole_statements():
@@ -237,7 +243,7 @@ def test_admin_sql_script_splits_into_whole_statements():
     statements = split_sql_script(ADMIN_SQL.read_text(encoding="utf-8"))
     creates = [s.split("(")[0].split()[-1] for s in statements if s.startswith("CREATE PROCEDURE")]
     views = [s.split()[4] for s in statements if s.startswith("CREATE OR REPLACE VIEW")]
-    assert views == ["accounts_overview", "deleted_accounts", "deleted_account_transactions"]
+    assert views == ["accounts_overview", "deleted_account_transactions"]  # deleted_accounts is a real table
     assert creates == ["restore_account", "purge_account_rows", "purge_account", "purge_deleted_accounts"]
     assert all(s.rstrip().endswith("END") for s in statements if s.startswith("CREATE PROCEDURE"))
     assert not any(s.startswith(("DELIMITER", "USE")) for s in statements)

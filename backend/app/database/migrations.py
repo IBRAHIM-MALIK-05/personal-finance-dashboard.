@@ -18,12 +18,33 @@ from .tables import metadata
 
 ADMIN_SQL = Path(__file__).resolve().parents[2] / "sql" / "account_admin.sql"
 
-# Run once, right after the column is added to an existing database.
+# Run once, right after the column (or table) is added to an existing database, in this order.
 BACKFILL = {
     # Accounts soft-deleted before the is_deleted flag existed only had deleted_at set.
     "profiles.is_deleted": "UPDATE profiles SET is_deleted = 1 WHERE deleted_at IS NOT NULL",
     "workspaces.is_deleted": "UPDATE workspaces SET is_deleted = 1 WHERE deleted_at IS NOT NULL",
+    # Record accounts that were soft-deleted before the deleted_accounts table existed.
+    "table deleted_accounts": (
+        "INSERT INTO deleted_accounts (profile_id, workspace_id, name, email, deleted_at) "
+        "SELECT p.id, MIN(m.workspace_id), p.display_name, p.deleted_email, COALESCE(p.deleted_at, CURRENT_TIMESTAMP) "
+        "FROM profiles p LEFT JOIN memberships m ON m.profile_id = p.id "
+        "WHERE p.is_deleted = 1 AND p.is_demo = 0 GROUP BY p.id, p.display_name, p.deleted_email, p.deleted_at"),
 }
+
+# Older versions created views with these names; the names are now real tables.
+REPLACED_VIEWS = ("deleted_accounts",)
+
+
+def _drop_replaced_views(db: Database) -> None:
+    if not db.is_mysql:
+        return
+    with db.engine.begin() as conn:
+        for name in REPLACED_VIEWS:
+            is_view = conn.execute(text(
+                "SELECT COUNT(*) FROM information_schema.VIEWS "
+                "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :n"), {"n": name}).scalar()
+            if is_view:
+                conn.execute(text(f"DROP VIEW {name}"))
 
 
 def _column_ddl(db: Database, column) -> str:
@@ -34,10 +55,13 @@ def _column_ddl(db: Database, column) -> str:
 
 
 def upgrade_schema(db: Database) -> list[str]:
-    """Add what newer versions of ``tables.py`` define.  Returns e.g. ``["profiles.is_deleted"]``."""
+    """Add what newer versions of ``tables.py`` define.
+    Returns e.g. ``["table deleted_accounts", "profiles.is_deleted"]``."""
+    _drop_replaced_views(db)
+    before = set(inspect(db.engine).get_table_names())
     metadata.create_all(db.engine)  # creates missing tables only
     existing = inspect(db.engine)
-    added: list[str] = []
+    added: list[str] = [f"table {t.name}" for t in metadata.sorted_tables if t.name not in before]
     with db.engine.begin() as conn:
         for table in metadata.sorted_tables:
             have = {c["name"] for c in existing.get_columns(table.name)}
@@ -50,9 +74,9 @@ def upgrade_schema(db: Database) -> list[str]:
                 conn.execute(text(f"ALTER TABLE {table.name} ADD COLUMN {_column_ddl(db, column)}"))
                 added.append(f"{table.name}.{column.name}")
         # Backfills run after *every* column exists, since one may read another added just now.
-        for name in added:
-            if name in BACKFILL:
-                conn.execute(text(BACKFILL[name]))
+        for name, sql in BACKFILL.items():
+            if name in added:
+                conn.execute(text(sql))
     return added
 
 

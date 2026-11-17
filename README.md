@@ -95,8 +95,9 @@ every read and write.
 
 Settings → **Delete account** (password + the word `DELETE`) is a **soft delete**. Nothing is erased:
 
-| Column | Meaning |
+| Where | Meaning |
 |---|---|
+| table `deleted_accounts` | **one row per soft-deleted account**: `profile_id`, `workspace_id`, `name`, `email`, `deleted_at` |
 | `profiles.is_deleted`, `workspaces.is_deleted` | `0` = active (default), `1` = deleted by its owner |
 | `profiles.deleted_at` | when it was deleted |
 | `profiles.deleted_email` | the email, moved aside so the address can sign up again |
@@ -106,11 +107,11 @@ and permanently deleting are done **in the database**. The app installs these to
 (defined in [`backend/sql/account_admin.sql`](backend/sql/account_admin.sql)); use them in MySQL Workbench:
 
 ```sql
+SELECT * FROM deleted_accounts;                   -- the table of soft-deleted accounts (their ids)
 SELECT * FROM accounts_overview;                  -- every real account with is_deleted and status
-SELECT * FROM deleted_accounts;                   -- soft-deleted accounts and how much data each has
 SELECT * FROM deleted_account_transactions WHERE profile_id = 'u_...';
 
-CALL restore_account('u_...');                    -- undo a soft delete
+CALL restore_account('u_...');                    -- undo a soft delete (removes the row from deleted_accounts)
 CALL purge_account('u_...');                      -- permanent delete of one soft-deleted account
 CALL purge_deleted_accounts(30);                  -- permanent delete of all soft-deleted 30+ days ago (0 = all)
 ```

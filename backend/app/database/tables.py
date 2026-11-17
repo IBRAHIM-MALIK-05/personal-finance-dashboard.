@@ -49,6 +49,18 @@ workspaces = Table(
     Column("deleted_at", DateTime, nullable=True),
 )
 
+# One row per soft-deleted account: the place to check which accounts are deleted.
+# Written in the same transaction that sets profiles.is_deleted = 1; the row is removed when the
+# account is restored or permanently purged (see sql/account_admin.sql).
+deleted_accounts = Table(
+    "deleted_accounts", metadata,
+    Column("profile_id", String(32), ForeignKey("profiles.id", ondelete="CASCADE"), primary_key=True),
+    Column("workspace_id", Integer, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=True),
+    Column("name", String(80), nullable=False),
+    Column("email", String(254), nullable=True),
+    Column("deleted_at", DateTime, nullable=False),
+)
+
 memberships = Table(
     "memberships", metadata,
     Column("profile_id", String(32), ForeignKey("profiles.id", ondelete="CASCADE"), primary_key=True),

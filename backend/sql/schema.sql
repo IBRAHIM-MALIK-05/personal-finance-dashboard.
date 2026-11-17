@@ -83,6 +83,17 @@ CREATE TABLE coach_notes (
 	FOREIGN KEY(coach_id) REFERENCES profiles (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE deleted_accounts (
+	profile_id VARCHAR(32) NOT NULL, 
+	workspace_id INTEGER, 
+	name VARCHAR(80) NOT NULL, 
+	email VARCHAR(254), 
+	deleted_at DATETIME NOT NULL, 
+	PRIMARY KEY (profile_id), 
+	FOREIGN KEY(profile_id) REFERENCES profiles (id) ON DELETE CASCADE, 
+	FOREIGN KEY(workspace_id) REFERENCES workspaces (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE goals (
 	id INTEGER NOT NULL AUTO_INCREMENT, 
 	workspace_id INTEGER NOT NULL, 
