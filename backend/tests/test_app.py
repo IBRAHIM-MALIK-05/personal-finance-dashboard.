@@ -6,7 +6,6 @@ from datetime import date
 import re
 
 from sqlalchemy import func, select
-from sqlalchemy import select
 import pytest
 
 from app import create_app
@@ -326,6 +325,13 @@ def test_export_csv_is_formula_safe(client):
     r = client.post("/export", data={"kind": "transactions"})
     assert r.mimetype == "text/csv" and b"'=cmd" in r.data
     assert r.data.startswith("﻿".encode())  # UTF-8 byte-order mark for Excel
+
+
+def test_export_page_says_the_date_range_is_for_transactions_only(client):
+    login(client, "bilal")
+    page = client.get("/export").get_data(as_text=True)
+    assert "Transaction date range (optional)" in page
+    assert "apply only to the transaction export" in page and "always cover the last six months" in page
 
 
 # ================================================================================================
@@ -890,3 +896,47 @@ def test_summary_only_coach_cannot_read_transaction_details_through_activity(ser
         except service.Forbidden:
             return
     assert "PrivateTransactionMarker" not in str(activity)
+
+
+# ================================================================================================
+# Decimal amounts survive editing (regression: edit forms used to drop the paisa)
+# ================================================================================================
+
+def _input_value(page, field_id):
+    return re.search(rf'id="{field_id}"[^>]*\svalue="([^"]*)"', page, re.S).group(1)
+
+
+def test_recurring_amount_with_paisa_survives_an_unchanged_edit(client, db):
+    login(client, "bilal")
+    form = {"name": "Water bill", "payee": "Water Board", "amount": "99.99", "direction": "out",
+            "cadence": "monthly", "anchor_date": AS_OF.isoformat(), "category_id": "utilities", "tolerance_pct": "10"}
+    assert client.post("/bills/new", data=form).status_code == 302
+    with db.read() as c:
+        bill = c.execute(select(T.recurring_bills).where(T.recurring_bills.c.name == "Water bill")).first()
+    assert bill.amount == -9999
+
+    page = client.get(f"/bills/{bill.id}/edit").get_data(as_text=True)
+    shown = _input_value(page, "f-amount")
+    assert shown == "99.99"
+
+    r = client.post(f"/bills/{bill.id}/edit", data={**form, "amount": shown, "version": bill.version})
+    assert r.status_code == 302
+    with db.read() as c:
+        assert c.execute(select(T.recurring_bills.c.amount).where(T.recurring_bills.c.id == bill.id)).scalar() == -9999
+
+
+def test_budget_limit_with_paisa_survives_an_unchanged_update(client, db):
+    login(client, "bilal")
+    assert client.post("/budgets", data={"category_id": "groceries", "monthly_limit": "100.50"}).status_code == 302
+
+    page = client.get("/budgets").get_data(as_text=True)
+    shown = _input_value(page, "lim-groceries")
+    assert shown == "100.50"
+
+    with db.read() as c:
+        budget = c.execute(select(T.budgets).where(T.budgets.c.category_id == "groceries",
+                                                   T.budgets.c.workspace_id == 2)).first()
+    r = client.post("/budgets", data={"category_id": "groceries", "monthly_limit": shown, "version": budget.version})
+    assert r.status_code == 302
+    with db.read() as c:
+        assert c.execute(select(T.budgets.c.monthly_limit).where(T.budgets.c.id == budget.id)).scalar() == 10050

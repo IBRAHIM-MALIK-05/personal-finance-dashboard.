@@ -43,7 +43,6 @@ CATEGORIES: dict[str, Category] = {
 }
 
 EXPENSE_IDS = [c.id for c in CATEGORIES.values() if c.group == "expense"]
-INCOME_IDS = [c.id for c in CATEGORIES.values() if c.group == "income"]
 BUDGETABLE_IDS = [i for i in EXPENSE_IDS if i != "uncategorised"]
 
 

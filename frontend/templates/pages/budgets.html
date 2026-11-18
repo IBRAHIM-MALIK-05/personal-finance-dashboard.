@@ -50,7 +50,7 @@
       <div class="row-fields">
         <div class="field"><label for="lim-{{ cid }}">Monthly limit (Rs)</label>
           <input id="lim-{{ cid }}" name="monthly_limit" type="text" inputmode="decimal"
-                 value="{{ (s.budget.monthly_limit // 100) }}" {% if edit_cat == cid %}aria-invalid="true"{% endif %}></div>
+                 value="{{ '%.2f'|format(s.budget.monthly_limit / 100) }}" {% if edit_cat == cid %}aria-invalid="true"{% endif %}></div>
         <div class="actions"><button class="secondary" type="submit">Update<span class="sr-only"> {{ s.category_name }} limit</span></button></div>
       </div>
     </form>

@@ -32,7 +32,9 @@ def _form_defaults(b: dict | None = None) -> dict:
     if b is None:
         return {"cadence": "monthly", "direction": "out", "tolerance_pct": "10",
                 "anchor_date": today().isoformat(), "category_id": "utilities"}
-    return {"name": b["name"], "payee": b["payee"], "amount": f"{abs(b['amount']) // 100}",
+    # Paisa -> rupees without dropping the decimals (9999 -> "99.99", 9950 -> "99.5", 9900 -> "99").
+    amount = f"{abs(b['amount']) / 100:.2f}".rstrip("0").rstrip(".")
+    return {"name": b["name"], "payee": b["payee"], "amount": amount,
             "direction": "in" if b["amount"] > 0 else "out", "cadence": b["cadence"],
             "anchor_date": b["anchor_date"].isoformat(), "category_id": b["category_id"],
             "tolerance_pct": str(b["tolerance_pct"]), "version": b["version"]}

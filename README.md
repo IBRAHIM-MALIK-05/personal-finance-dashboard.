@@ -56,13 +56,21 @@ How a request flows: `routes/` checks the request and calls `services/` (which c
 database) and `view_model.py` (which runs the `engine/` calculations). The route then renders a template from
 `frontend/templates/pages/`, with charts from `charts/`.
 
-## Setup (Windows)
+## Setup
 
 Needs Python 3.12 or newer. Install the libraries once:
 
-```powershell
+```
 cd backend
 python -m pip install -r requirements.txt
+```
+
+On Windows, if `python` is not recognized, use the `py -3` commands below. On macOS or Linux, use `python3` if
+`python` is not found.
+
+```powershell
+cd backend
+py -3 -m pip install -r requirements.txt
 ```
 
 **Database.** Without any configuration the app uses a local SQLite file, and every page shows which storage is in
@@ -76,11 +84,20 @@ git-ignored; the session key is created there automatically on the first run.
 
 ## Run
 
-```powershell
+```
 cd backend
 python run.py                 # open http://127.0.0.1:5000
 python run.py --reset-demo    # put the demo budgets back to the start (accounts are kept)
 python run.py --reset         # rebuild ALL tables (refuses if real accounts exist, unless --yes)
+```
+
+Windows, if `python` is not recognized:
+
+```powershell
+cd backend
+py -3 run.py
+py -3 run.py --reset-demo
+py -3 run.py --reset
 ```
 
 The first page is **Log in**. New people click **Create an account**. To look around without an account, click
@@ -129,9 +146,16 @@ email has been reused.
 
 ## Test
 
-```powershell
+```
 cd backend
 python -B -m pytest -p no:cacheprovider
+```
+
+Windows, if `python` is not recognized:
+
+```powershell
+cd backend
+py -3 -B -m pytest -p no:cacheprovider
 ```
 
 (`-B` and `-p no:cacheprovider` stop Python and pytest leaving cache folders in the project.)
@@ -146,8 +170,9 @@ python -B -m pytest -p no:cacheprovider
 
 Run from `backend/`:
 
-```powershell
-python scripts\generate_data.py --out generated-data   # sample data files
+```
+python scripts/generate_data.py --out generated-data     # sample data files
+py -3 scripts\generate_data.py --out generated-data    # Windows, if `python` is not recognized
 ```
 
 ## Known limitations

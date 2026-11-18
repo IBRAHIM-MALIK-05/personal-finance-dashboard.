@@ -12,10 +12,13 @@
     <label class="choice"><input type="radio" name="kind" value="transactions" {% if actor.can('view_details') %}checked{% else %}disabled{% endif %}>
       <span><strong>All transactions</strong> with categories{% if not actor.can('view_details') %} <span class="muted">(not shared with you)</span>{% endif %}</span></label>
   </fieldset>
-  <div class="row-fields">
-    <div class="field"><label for="es">From (optional)</label><input id="es" type="date" name="start"></div>
-    <div class="field"><label for="ee">To (optional)</label><input id="ee" type="date" name="end"></div>
-  </div>
+  <fieldset><legend>Transaction date range (optional)</legend>
+    <p class="hint" id="range-hint">These dates apply only to the transaction export. Monthly summaries always cover the last six months.</p>
+    <div class="row-fields">
+      <div class="field"><label for="es">From</label><input id="es" type="date" name="start" aria-describedby="range-hint"></div>
+      <div class="field"><label for="ee">To</label><input id="ee" type="date" name="end" aria-describedby="range-hint"></div>
+    </div>
+  </fieldset>
   <button class="primary" type="submit">{{ ic.icon('export', 18) }}Download CSV</button>
 </form>
 {% endblock %}

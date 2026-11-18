@@ -9,7 +9,7 @@ from __future__ import annotations
 import calendar
 import re
 from dataclasses import dataclass, field
-from datetime import date, timedelta
+from datetime import date
 from typing import Literal
 
 DateOrder = Literal["DMY", "MDY"]
@@ -23,12 +23,6 @@ MONTHS.update({m.lower(): i for i, m in enumerate(calendar.month_name) if m})
 MONTHS["sept"] = 9
 
 MIN_YEAR, MAX_YEAR = 1990, 2100
-
-
-def parse_iso(value: str | date) -> date:
-    if isinstance(value, date):
-        return value
-    return date.fromisoformat(value)
 
 
 def iso(d: date | None) -> str | None:
@@ -58,10 +52,6 @@ def month_end(d: date) -> date:
     return d.replace(day=days_in_month(d.year, d.month))
 
 
-def month_key(d: date) -> str:
-    return f"{d.year:04d}-{d.month:02d}"
-
-
 def month_label(d: date) -> str:
     return f"{calendar.month_abbr[d.month]} {d.year}"
 
@@ -75,13 +65,6 @@ def previous_full_months(as_of: date, count: int) -> list[tuple[date, date]]:
         cursor = add_months(cursor, -1)
         out.append((cursor, month_end(cursor)))
     return out
-
-
-def daterange(start: date, end: date):
-    d = start
-    while d <= end:
-        yield d
-        d += timedelta(days=1)
 
 
 def human(d: date) -> str:
