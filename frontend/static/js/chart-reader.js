@@ -37,7 +37,14 @@
       readout.textContent = p.t;
     }
 
-    var STEPS = { ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1, PageUp: 7, PageDown: -7 };
+    var STEPS = {
+      ArrowRight: 1,
+      ArrowUp: 1,
+      ArrowLeft: -1,
+      ArrowDown: -1,
+      PageUp: -7,
+      PageDown: 7
+    };
     wrap.addEventListener("keydown", function (ev) {
       if (ev.key === "Home") { ev.preventDefault(); show(0); return; }
       if (ev.key === "End") { ev.preventDefault(); show(points.length - 1); return; }

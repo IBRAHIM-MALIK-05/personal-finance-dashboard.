@@ -280,7 +280,7 @@ def derive_payee(description: str) -> str:
     'REFUND - Bazaar Online order' -> 'Bazaar Online'."""
     s = REFUND_WORDS.sub("", description).strip(" -–:/|")
     s = re.split(r"\s+[-–/|]\s+", s, maxsplit=1)[0]
-    s = re.sub(r"(?i)(ref|txn|order|inv)\.?\s*#?\s*\d\w*", "", s)
+    s = re.sub(r"(?i)\b(ref|txn|order|inv)\b\.?\s*#?\s*\d\w*", "", s)
     s = re.sub(r"#\s*\w+", "", s)
     s = re.sub(r"(?i)\s+(order|purchase|pos purchase|payment|trip)$", "", s.strip())
     s = re.sub(r"\s+", " ", s).strip(" -–:")

@@ -940,3 +940,152 @@ def test_budget_limit_with_paisa_survives_an_unchanged_update(client, db):
     assert r.status_code == 302
     with db.read() as c:
         assert c.execute(select(T.budgets.c.monthly_limit).where(T.budgets.c.id == budget.id)).scalar() == 10050
+
+
+# ================================================================================================
+# Bills, goals, scenarios and coach notes through the web layer
+# ================================================================================================
+
+def _bill_named(db, name):
+    with db.read() as c:
+        return c.execute(select(T.recurring_bills).where(T.recurring_bills.c.name == name)).first()
+
+
+def _goal_named(db, name):
+    with db.read() as c:
+        return c.execute(select(T.goals).where(T.goals.c.name == name)).first()
+
+
+def _txn(db, txn_id):
+    with db.read() as c:
+        return c.execute(select(T.transactions).where(T.transactions.c.id == txn_id)).first()
+
+
+def _contributions(db, goal_id):
+    with db.read() as c:
+        return c.execute(select(T.goal_contributions).where(T.goal_contributions.c.goal_id == goal_id)).all()
+
+
+def test_bill_toggle_confirm_and_delete_journey(client, db):
+    login(client, "bilal")
+    due = AS_OF.replace(day=10)
+    r = client.post("/bills/new", data={"name": "Internet plan", "payee": "FiberNet", "amount": "2500",
+                                        "direction": "out", "cadence": "monthly", "anchor_date": due.isoformat(),
+                                        "category_id": "phone_internet", "tolerance_pct": "0"})
+    assert r.status_code == 302
+    bill = _bill_named(db, "Internet plan")
+    assert bill.active
+
+    r = client.post(f"/bills/{bill.id}/toggle", data={"active": "0", "version": bill.version}, follow_redirects=True)
+    assert "Paused. It is no longer in the forecast." in r.get_data(as_text=True)
+    assert not _bill_named(db, "Internet plan").active
+    r = client.post(f"/bills/{bill.id}/toggle", data={"active": "1", "version": bill.version + 1},
+                    follow_redirects=True)
+    assert "Resumed. It is back in the forecast." in r.get_data(as_text=True)
+    assert _bill_named(db, "Internet plan").active
+
+    client.post("/transactions/new", data={"posted_on": due.isoformat(), "amount": "2500", "payee": "FiberNet",
+                                           "direction": "out", "category_id": "phone_internet"})
+    with db.read() as c:
+        payment = c.execute(select(T.transactions).where(T.transactions.c.payee == "FiberNet")).first()
+    r = client.post(f"/bills/{bill.id}/confirm", data={"occurrence": due.isoformat(), "txn_id": payment.id,
+                                                        "version": payment.version})
+    assert r.status_code == 302 and r.headers["Location"].endswith("/bills#suggested")
+    linked = _txn(db, payment.id)
+    assert linked.recurring_id == bill.id and linked.occurrence_date == due
+
+    r = client.post(f"/bills/{bill.id}/delete", follow_redirects=True)
+    assert "Past payments are kept as normal transactions." in r.get_data(as_text=True)
+    assert _bill_named(db, "Internet plan") is None
+    kept = _txn(db, payment.id)  # the historical payment survives, unlinked
+    assert kept is not None and kept.amount == -250000
+    assert kept.recurring_id is None and kept.occurrence_date is None
+
+
+def test_bill_confirm_rejects_invalid_occurrence(client, db):
+    login(client, "bilal")
+    with db.read() as c:
+        bill = c.execute(select(T.recurring_bills).where(T.recurring_bills.c.workspace_id == 2)).first()
+        txn = c.execute(select(T.transactions).where(T.transactions.c.workspace_id == 2,
+                                                     T.transactions.c.recurring_id.is_(None))).first()
+    for bad in ("not-a-date", "2026-13-45", ""):
+        r = client.post(f"/bills/{bill.id}/confirm", data={"occurrence": bad, "txn_id": txn.id,
+                                                            "version": txn.version}, follow_redirects=True)
+        assert r.status_code == 200
+        assert "That bill date was not valid. Nothing was changed." in r.get_data(as_text=True)
+    after = _txn(db, txn.id)
+    assert after.recurring_id is None and after.occurrence_date is None and after.version == txn.version
+
+
+def test_goal_add_contribute_and_delete_journey(client, db):
+    login(client, "bilal")
+    deadline = date(2027, 11, 15)
+    r = client.post("/goals/new", data={"name": "Gaming console", "target": "150000", "monthly_plan": "10000",
+                                        "deadline": deadline.isoformat()})
+    assert r.status_code == 302
+    goal = _goal_named(db, "Gaming console")
+    assert goal.target == 15_000_000 and goal.monthly_plan == 1_000_000 and goal.deadline == deadline
+
+    with db.read() as c:
+        txns_before = c.execute(select(func.count()).select_from(T.transactions)).scalar_one()
+    r = client.post(f"/goals/{goal.id}/contribute", data={"amount": "5000"}, follow_redirects=True)
+    assert "Your balance is unchanged (allocation only)." in r.get_data(as_text=True)
+    [contribution] = _contributions(db, goal.id)
+    assert contribution.amount == 500_000 and contribution.transfer_txn_id is None
+    with db.read() as c:
+        assert c.execute(select(func.count()).select_from(T.transactions)).scalar_one() == txns_before
+
+    r = client.post(f"/goals/{goal.id}/delete", follow_redirects=True)
+    assert "Goal deleted." in r.get_data(as_text=True)
+    assert _goal_named(db, "Gaming console") is None and _contributions(db, goal.id) == []
+
+
+def test_goal_transfer_is_preserved_after_goal_deletion(client, db):
+    login(client, "bilal")
+    client.post("/goals/new", data={"name": "Holiday", "target": "80000", "deadline": "2027-06-30"})
+    goal = _goal_named(db, "Holiday")
+    r = client.post(f"/goals/{goal.id}/contribute", data={"amount": "2000", "record_transfer": "1"},
+                    follow_redirects=True)
+    assert "A transfer to savings was added to your transactions." in r.get_data(as_text=True)
+    [contribution] = _contributions(db, goal.id)
+    transfer = _txn(db, contribution.transfer_txn_id)
+    assert transfer.amount == -200_000 and transfer.kind == "transfer"
+    assert transfer.category_id == "savings_transfer" and transfer.posted_on == AS_OF
+    assert transfer.description == "Transfer to savings: Holiday"
+
+    client.post(f"/goals/{goal.id}/delete")
+    assert _goal_named(db, "Holiday") is None
+    kept = _txn(db, transfer.id)  # money that really moved stays in the ledger
+    assert kept is not None and kept.amount == -200_000 and kept.kind == "transfer"
+
+
+def test_scenario_delete_is_workspace_scoped(client, app, db):
+    with db.read() as c:
+        scenario_id = c.execute(select(T.scenarios.c.id).where(T.scenarios.c.workspace_id == 2)).scalar()
+
+    outsider = app.test_client()
+    login(outsider, "ayesha")  # can edit her own budget only, not the household one
+    outsider.post(f"/whatif/delete/{scenario_id}")
+    with db.read() as c:
+        assert c.execute(select(T.scenarios).where(T.scenarios.c.id == scenario_id)).first() is not None
+
+    login(client, "bilal")
+    r = client.post(f"/whatif/delete/{scenario_id}", follow_redirects=True)
+    assert "Saved scenario deleted." in r.get_data(as_text=True)
+    with db.read() as c:
+        assert c.execute(select(T.scenarios).where(T.scenarios.c.id == scenario_id)).first() is None
+
+
+def test_coach_note_becomes_visible_to_household(client, app, db):
+    login(client, "coach_sara")
+    r = client.post("/notes", data={"target": "budget:groceries", "text": "Try a weekly grocery cap.",
+                                    "next": "/budgets"})
+    assert r.status_code == 302 and r.headers["Location"].endswith("/budgets")
+    with db.read() as c:
+        note = c.execute(select(T.coach_notes).where(T.coach_notes.c.text == "Try a weekly grocery cap.")).first()
+    assert note.workspace_id == 2 and note.coach_id == "coach_sara" and note.target == "budget:groceries"
+
+    household = app.test_client()
+    login(household, "bilal")
+    page = household.get("/budgets").get_data(as_text=True)
+    assert "Note from Coach Sara" in page and "Try a weekly grocery cap." in page

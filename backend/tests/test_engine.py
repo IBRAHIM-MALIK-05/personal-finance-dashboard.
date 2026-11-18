@@ -1,7 +1,6 @@
 """Calculations without a database: money, dates, forecast, budgets, goals, what-if,
 CSV import analysis, input validation and the SVG charts.
 """
-from datetime import date
 from datetime import date, timedelta
 import json
 
@@ -13,16 +12,12 @@ from app.charts.svg import LinearScale, compact_pkr, esc, nice_domain, nice_step
 from app.database.seed import generate, messy_csv
 from app.engine import importer as I
 from app.engine import scenarios as SC
-from app.engine.budgets import budget_status
 from app.engine.budgets import budget_status, free_to_spend, variance_table
-from app.engine.categories import Rule, categorise
-from app.engine.categories import SYSTEM_RULES, Rule
+from app.engine.categories import SYSTEM_RULES, Rule, categorise
 from app.engine.dates import DateParseError, add_months, order_evidence, parse_flexible
 from app.engine.forecast import build_forecast, variable_assumptions
 from app.engine.goals import project
 from app.engine.models import Adjustment, Budget, Goal, RecurringBill, Txn
-from app.engine.models import Budget, Txn
-from app.engine.models import Txn
 from app.engine.money import AmountError, format_pkr, parse_amount
 from app.engine.recurring import match_occurrences, monthly_equivalent, occurrences
 from app.engine.validation import csv_safe, sanitize_text, validate_transaction
@@ -395,6 +390,13 @@ def test_csv_formula_injection_is_neutralised():
 def test_transaction_form_rejects_absurd_input(form, field):
     res = validate_transaction(form, AS_OF)
     assert field in res.errors
+
+
+def test_derive_payee_strips_reference_numbers():
+    """Regression: the pattern held backspace characters instead of word boundaries, so it never matched."""
+    assert I.derive_payee("INV 123 Landlord") == "Landlord"
+    assert I.derive_payee("TXN 123 Mega Mart") == "Mega Mart"
+    assert I.derive_payee("Order #4471 QuickBite Delivery") == "QuickBite Delivery"
 
 
 # ================================================================================================

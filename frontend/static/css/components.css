@@ -64,7 +64,7 @@ button:disabled, .button[aria-disabled="true"] { opacity: .55; cursor: not-allow
 
 /* ------------------------------------------------------------------ forms */
 .field { margin-bottom: 1rem; }
-.field label, .fieldset-legend { display: block; font-weight: 600; font-size: .88rem; margin-bottom: .3rem; color: var(--text); }
+.field label { display: block; font-weight: 600; font-size: .88rem; margin-bottom: .3rem; color: var(--text); }
 .req { font-weight: 500; color: var(--muted); font-size: .8rem; }
 .hint { margin: 0 0 .35rem; color: var(--muted); font-size: .82rem; }
 input[type="text"], input[type="email"], input[type="password"], input[type="date"],
